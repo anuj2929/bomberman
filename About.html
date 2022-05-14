@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+
+		<!-- Always force latest IE rendering engine (even in intranet) & Chrome Frame
+		Remove this if you use the .htaccess -->
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+		<title>HTML</title>
+		<meta name="description" content="">
+		<meta name="author" content="Anuj">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <script src="js/jQuery.1.10.0.js"></script>
+                <script src="js/modernizr.custom.74982.js"></script>
+                <link rel="stylesheet" type="text/css" href="css/display.css" />
+
+                <script type="text/javascript">
+                    $(document).ready(function(){
+                        $("#move").mouseover(function(){
+                            
+                        });
+                        //1 li mouseover
+                        $("li").first().mouseover(function(){
+                           $("#nav_element1_span").css("font-size","26px");
+                           $("#nav_element1_span").css("color","black");
+                           $("#pic").addClass("about");
+                        });
+                        //1 li mouseout
+                         $("li").first().mouseout(function(){
+                           $("#nav_element1_span").css("font-size","15px");
+                           $("#nav_element1_span").css("color","white");
+                           $("#pic").removeClass("about");
+                        });
+                        //2 li mouseover
+                        $("li:nth-child(2)").mouseover(function(){
+                            $("#nav_element2_span").css("font-size","26px");
+                            $("#nav_element2_span").css("color","black");
+                            $("#pic").addClass("control");
+                        });
+                        //2 li mouseout
+                         $("li:nth-child(2)").mouseout(function(){
+                            $("#nav_element2_span").css("font-size","15px");
+                            $("#nav_element2_span").css("color","white");
+                            $("#pic").removeClass("control");
+                        });
+                        //3 li mouseover
+                        $("li:nth-child(3)").mouseover(function(){
+                            $("#nav_element3_span").css("font-size","26px");
+                            $("#nav_element3_span").css("color","black");
+                            $("#pic").addClass("contact");
+                        });
+                        //3 li mouseout
+                        $("li"+":nth-child(3)").mouseout(function(){
+                            $("#nav_element3_span").css("font-size","15px");
+                            $("#nav_element3_span").css("color","white");
+                            $("#pic").removeClass("contact");
+                        });
+                        //4 li mouseover
+                        $("li:nth-child(4)").mouseover(function(){
+                            $("#nav_element4_span").css("font-size","26px");
+                            $("#nav_element4_span").css("color","black");
+                            $("#pic").addClass("demo");
+                        });
+                        //4 li mouseout
+                        $("li:nth-child(4)").mouseout(function(){
+                            $("#nav_element4_span").css("font-size","15px");
+                            $("#nav_element4_span").css("color","white");
+                            $("#pic").removeClass("demo");
+                        });
+                        $("li").first().click(function(){
+                            $("#nav_element2_body").hide(200);
+                            $("#nav_element3_body").hide(200);
+                            $("#nav_element4_body").hide(200);
+                            $("#body").show(200);
+                            $("#nav_element1_body").show(200);
+                            if($('#box_arrow').is(':visible'))
+                            {
+                                $("#box_arrow").animate({left:'80px'});
+                            }
+                            else{
+                                $("#box_arrow").css("left","80px");
+                                $("#box_arrow").show();
+                                $("#close_body").show(200);
+                            }
+                           
+                        });
+                        $("li:nth-child(2)").click(function(){
+                           $("#nav_element1_body").hide(200);
+                           $("#nav_element3_body").hide(200);
+                           $("#nav_element4_body").hide(200);
+                           $("#body").show(200);
+                           $("#nav_element2_body").show(200);
+                           if($('#box_arrow').is(':visible'))
+                            {
+                                $("#box_arrow").animate({left:'180px'});
+                            }
+                            else{
+                                $("#box_arrow").css("left","180px");
+                                $("#box_arrow").show();
+                                $("#close_body").show(200);
+                            }
+                           
+                        });
+                        $("li:nth-child(3)").click(function(){
+                           $("#nav_element1_body").hide(200);
+                           $("#nav_element2_body").hide(200);
+                           $("#nav_element4_body").hide(200);
+                           $("#body").show(200);
+                           $("#nav_element3_body").show(200);
+                           if($('#box_arrow').is(':visible'))
+                            {
+                                $("#box_arrow").animate({left:'280px'});
+                            }
+                            else{
+                                $("#box_arrow").css("left","280px");
+                                $("#box_arrow").show();
+                                $("#close_body").show(200);
+                            }
+                        });
+                        //click on 4th li
+                        $("li:nth-child(4)").click(function(){
+                           $("#nav_element1_body").hide(200);
+                           $("#nav_element2_body").hide(200);
+                           $("#nav_element3_body").hide(200);
+                           $("#body").show(200);
+                           $("#nav_element4_body").show(200);
+                           if($('#box_arrow').is(':visible'))
+                            {
+                                $("#box_arrow").animate({left:'380px'});
+                            }
+                            else{
+                                $("#box_arrow").css("left","380px");
+                                $("#box_arrow").show();
+                                $("#close_body").show(200);
+                            }
+                        });
+                        $("#close_body").click(function(){
+                           $("#box_arrow").fadeOut(200);
+                           $(this).fadeOut(200);
+                           $("#body").fadeOut(200);
+                        });
+                       
+                    });
+                  
+                </script>   
+	</head>
+
+	<body>
+	<!--	<svg height=500 width=500>
+                <defs>	
+                <g id="grup">
+                	<rect x="100" y="100" width="150" height="150" fill="pink" stroke="red" stroke-width="5" ></rect>
+			<text y="60" x="100" font-family="impact" font-size="20px" fill="pink">Love you anuj</text>  
+			 <circle cx="50" cy="50" r="50" stroke="black" fill="red" stroke-width="1"/>
+			 </g>
+                         </defs>
+                         <use xlink:href="#grup" transform="translate(100,60) rotate(30) scale(0.75)" />
+                         <use xlink:href="#grup" transform="translate(30,60) rotate(120) scale(0.15)"/>
+			 </svg>
+     -->      <div id="universe">
+            <header>
+                    Bomberman
+            </header>
+            <ul id="nav">
+                <li id="nav_element1"> 
+                    <span class="label" id="nav_element1_span">About</span>  
+                </li>
+                <li id="nav_element2">
+                   <span class="label" id="nav_element2_span">Controls</span>
+                </li>
+                <li id="nav_element3">
+                    <span class="label" id="nav_element3_span">Contact</span>
+                </li>
+                <li id="nav_element4">
+                    <span class="label" id="nav_element4_span">Demo</span>
+                </li>
+            </ul>
+            <br/>
+            <div id="body" style="display: none;">
+            <div id="nav_element1_body" style="display:none;">
+                 Bomberman is a HTML5 Canvas based game.You don't need flash,add-on or any plugin to play it.Hurray(y).
+                 You can play,modify,reconstruct it as just javascript is used in making this game,change the javascript variables value and have fun.You can play this game in full screen of your browsers as well.<br/>
+                 <center>(: I hope you like it :)</center>
+                 <br/><br/>Give it a try:<br/>
+                 Set var bomberman_speed=10
+                 in bomb.html and see the magic
+                 <span style="font-size:inherit;font-family: inherit; position:absolute;bottom:0px;left:4px;cursor:default;">For more Information: <a href='www.Bomberman.codeplex.com' target="blank">www.Bomberman.codeplex.com</a></span>
+             </div>
+                <div id="nav_element2_body" style="display: none;">
+                   Use any of these options to give direction to the Bomberman: <br/>&sstarf; Arrow keys<br/>&sstarf; WSAD<br/>&sstarf; Mouse (click over bomberman)<br/> <br/>
+                   Use Space and mouse left click to put bomb on the screen at the bomberman present location.
+                </div>
+                <div id="nav_element3_body" style="display: none;padding-left: 4px;">
+                    <b>&lt;/&gt;</b> Anuj Rastogi <b>&lt;/&gt;</b><br/>
+                    <table>
+                    	<tr><td>Email id:</td><td>anuj29rastogi@gmail.com</td></tr>
+                    	<tr><td>Phone No:</td><td>+919888503296</td></tr>
+                    	<tr><td>Facebook:</td><td><a href="http://www.fb.com/anuj29rastogi">www.fb.com/anuj29rastogi</a></td></tr>
+                    	<tr><td>Twitter: </td><td></td></tr>
+                    	<tr><td>Linked in:</td><td><a href="http://in.linkedin.com/pub/anuj-rastogi/42/827/b0b/">http://in.linkedin.com/pub/anuj-rastogi/42/827/b0b/</a></td></tr>
+                    	<tr><td>Google+:</td><td><a href="https://plus.google.com/118188684502951103528/">https://plus.google.com/118188684502951103528/</a></td></tr>
+                    </table> 
+                </div>
+                <div id="nav_element4_body" style="display:none;padding-left: 4px;">
+                    &sstarf; There is a hidden power in 80% of fragile boxes.<br/>
+                    &sstarf; Kill a character +10 score and when you are killed by any character cost you -10 in score.<br/>
+                    &sstarf; Remove a fragile box gives you +2 score.<br/>
+                    &sstarf; Progress bar with type shows you how much time is left to use that power.<br/>
+                </div>
+            </div>
+            <div id="close_body" style="display: none;"> </div>
+            <div id="box_arrow" style="display:none;"> </div>
+            <div id="pic"> </div>
+            </div>
+
+             <footer>
+                <hr>
+                &copy; Copyrights by Anuj Rastogi
+            </footer>
+	</body>
+</html>

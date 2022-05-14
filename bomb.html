@@ -1,0 +1,2667 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <title>Bomberman</title>
+    <meta name="description" content="" />
+    <meta name="author" content="Chinku" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,user-scalable=no" />
+    <script src="js/modernizr.custom.74982.js"></script>
+    <script src="js/jQuery.1.10.0.js"></script>
+    <link rel="stylesheet" type="text/css" href="css/mystyle.css" />
+    <script type="text/javascript">
+                window.addEventListener("load",windowloaded,false);
+                        function windowloaded(){
+                                canvasApp();
+                        }
+                        function canvasSupported(){
+                                return Modernizr.canvas;
+                        }
+                        var FRAME_RATE=33;
+                        var intern;
+                        var slider__on_take_key_input="off";        //slider is off
+                        
+                        const INITIALIZE=10;
+                        const PLAYING=20;
+                        const OVER_PAUSE=30;
+                        const ONMARKS=40;
+                        const LOOSE=50;
+                        const SHOOT_CHARACTER=60;
+                        const GAME_FINISH=70;
+                        const PAUSE=80;
+                        
+                        var appstate=INITIALIZE;
+                        
+                        const CLICK_SOUND="sounds/click";
+                        const TIMER_SOUND="sounds/timer";
+                        const EXPLODE="sounds/explosion";
+                        const CRASH="sounds/crash";
+                        const SCORE_SOUND="sounds/score+";
+                        const LIFE_SOUND="sounds/life_sound";
+                        const WIN_SOUND="sounds/win";
+                        
+                        var progressPool=new Array();
+                        
+                        var SoundPool=new Array();
+                        var Max_Sounds=50;
+                        var tileMap=[];
+                        var block_size=54;
+                        var check_play_type_just_once=0;
+                        //introducing the number of life chances for the bomberman 
+                        var chances=3;
+                        if(localStorage.level<=0)
+                        {
+                              localStorage['level']=1;
+                        }
+                        if(localStorage.level)
+                        {
+                              var level=localStorage.level;
+                        }
+                        else{
+                               localStorage['level']=1;
+                               var level=1;
+                        }
+                        var SHIELD=false;
+                        var SCORE=0;
+                        //for coins rotation
+                        var coins_frameY=0;
+                        //for showing coins number
+                        var Coins_number=0;
+                        //                              Locations of the top elements(coin,bomb,level,range)
+                        var coin_locationLeft=0;
+                        var coin_locationTop=0;
+                        var bomb_locationLeft=0;
+                        var bomb_locationTop=0;
+                        var level_scoreLeft=0;
+                        var level_scoreTop=0;
+                        var level_scoreWidth=200;
+                        var range_imageLocationLeft=0;
+                        var range_imageLocationTop=0;
+                        
+                        var SOUNDONOFF="ON";
+                        function supportedAudioFormat(audio)
+                        {
+                        var returnExtension="";
+                       if(audio.canPlayType("audio/ogg")=="probably"||audio.canPlayType("audio/ogg")=="maybe")
+                        {
+                                returnExtension="ogg";
+                        }
+                       if(audio.canPlayType("audio/wav")=="probably"||audio.canPlayType("audio/wav")=="maybe")
+                        {
+                                returnExtension="wav";
+                        }
+                       if(audio.canPlayType("audio/mp3")=="probably"||audio.canPlayType("audiio/mp3")=="maybe")
+                        {
+                        returnExtension="mp3";
+                        }
+                        console.log("play type="+returnExtension);
+                        return returnExtension;
+                        }
+                        //supportedAudioFormat
+                        function canvasApp(){
+                                if(!canvasSupported()){
+                                        return;
+                                }
+                                //most important two lines
+                                var theCanvas=document.getElementById("Canvas");
+                                var context=theCanvas.getContext("2d");
+                                context.textBaseline="middle";
+                                var touches=[];
+                                theCanvas.addEventListener('touchstart',function(event){alert("start");});
+                                theCanvas.addEventListener('touchend',function(event){alert("end");});
+                                theCanvas.addEventListener('touchmove',function(event){console.log("asd");event.preventDefault();});
+                                theCanvas.width=document.body.clientWidth;
+                                theCanvas.height=document.body.clientHeight;
+                                var row=0;
+                                var col=0;
+                   /*************positioning the upper bar elements ******************/            
+                                //check windwo resolution if less than 500px then do not set these elements
+                                level_scoreLeft=theCanvas.width/2-50;
+                                level_scoreTop=20;
+
+                                coin_locationLeft=level_scoreLeft+level_scoreWidth+150;
+                                coin_locationTop=0;
+                                
+                                $(".coin").css({left:coin_locationLeft,top:coin_locationTop});			//coin_location
+                                bomb_locationLeft=coin_locationLeft+66;
+                                bomb_locationTop=5;
+                                $(".bomb").css({left:bomb_locationLeft,top:bomb_locationTop});			//bomb_location
+                                range_ImageLocationLeft=bomb_locationLeft+65;
+                                range_ImageLocationTop=0;
+                                $(".range_bomb").css({left:range_ImageLocationLeft,top:range_ImageLocationTop});
+                                
+                                var loadCount=0;
+                                var ItemsToLoad=19;
+                                engine();
+                                intern=setInterval(engine,FRAME_RATE);
+                                /*******FOR mouseup coordinates************/
+                                var mouseupX,mouseupY=0;
+                                var mouse_move_upX=0,mouse_move_upY=0;
+                                var mouse_up_upX=0,mouse_up_upY=0;
+                                
+                                var scalefactor=0.1;
+                                var max_scalefactor=1;
+                                var min_scalefactor=0.5;
+                                
+                                //moving bomberman
+                                const UP=0;
+                                const DOWN=1;
+                                const RIGHT=2;
+                                const LEFT=3;
+                                var bomberman_direction=RIGHT;
+                                var bomberman_size=48;
+                                var bomberman_speed=4;
+                                //bomberman display variables
+                                var x,y=0;
+                                var bomberman_destinationX=0;
+                                var bomberman_destinationY=0;
+                                /************bomberman_moving_frames_coordinates*************************/
+                                //bomberman upper movement frame coordinated
+                                var Upx=['0','48','96'];
+                                var Upy=['144','144','144']; /****L*****/    
+                                var l=0;                                        //--------> this variable is used as frame counter to move through different frames
+                                //bomberman down movement frame coordinate
+                                var Downx=['1','96','144'];
+                                var Downy=['96','96','96'];
+                                //bomberman right movement frame coordinates
+                                var Rightx=['1','96','144'];
+                                var Righty=['48','48','48'];
+                                //bomberman left movement frame coodinates
+                                var Leftx=['1','96','144'];
+                                var Lefty=['0','0','0'];
+                                /*********bubbleman_moving_frames_coordinates******************************/
+                                var bubbleman_Upx=[0,64,128,192];
+                                var bubbleman_Upy=[0,0,0,0];
+                                var bubbleman_Leftx=bubbleman_Upx;
+                                var bubbleman_Lefty=[192,192,192,192];
+                                var bubbleman_Downx=bubbleman_Upx;
+                                var bubbleman_Downy=[128,128,128,128];
+                                var bubbleman_Rightx=bubbleman_Upx;
+                                var bubbleman_Righty=[64,64,64,64];
+                                var bubbleman_l=0;
+                                var bubbleman_direction=UP;
+                                var bubbleman_size=48;
+                                var bubbleman_x=0,bubbleman_y=0;
+                                var bubbleman_destinationX=0;
+                                var bubbleman_destinationY=0;
+                                var bubbleman_speed=4;                                  //bubbleman_speed
+                                var bubbleman_placed=false;
+                                var bubbleman_array=new Array();
+                                var NBM=level*5;                                                        //Number Of Bubbleman
+                                for(var i=0;i<NBM;i++)
+                                {
+                                        bubbleman_array.push({
+                                                bubbleman_Upx:bubbleman_Upx,
+                                                bubbleman_Upy:bubbleman_Upy,
+                                                bubbleman_Leftx:bubbleman_Leftx,
+                                                bubbleman_Lefty:bubbleman_Lefty,
+                                                bubbleman_Downx:bubbleman_Downx,
+                                                bubbleman_Downy:bubbleman_Downy,
+                                                bubbleman_Rightx:bubbleman_Rightx,
+                                                bubbleman_Righty:bubbleman_Righty,
+                                                bubbleman_l:bubbleman_l,
+                                                bubbleman_direction:random_Direction(),
+                                                bubbleman_size:bubbleman_size,
+                                                bubbleman_x:bubbleman_x,
+                                                bubbleman_y:bubbleman_y,
+                                                bubbleman_destinationX:bubbleman_destinationX,
+                                                bubbleman_destinationY:bubbleman_destinationY,
+                                                bubbleman_speed:bubbleman_speed,
+                                                bubbleman_placed:bubbleman_placed
+                                                });
+                                }
+                                
+                                /**********end of bubbleman movement variables******************************/
+                                var pacman_Upx=[0,64,128,192];
+                                var pacman_Upy=[0,0,0,0];
+                                var pacman_Leftx=pacman_Upx;
+                                var pacman_Lefty=[192,192,192,192];
+                                var pacman_Downx=pacman_Upx;
+                                var pacman_Downy=[128,128,128,128];
+                                var pacman_Rightx=pacman_Upx;
+                                var pacman_Righty=[64,64,64,64];
+                                var pacman_l=0;
+                                var pacman_direction=UP;
+                                var pacman_size=48;
+                                var pacman_x=0,pacman_y=0;
+                                var pacman_destinationX=0;
+                                var pacman_destinationY=0;
+                                var pacman_speed=4;
+                                var pacman_placed=false;
+                                var pacman_array=new Array();
+                                /***********end of pacman movement varibales**********************************/
+                                var pacman_array=new Array();
+                                var NPM=level*5;                                                        //Number of Pacman
+                                for(var i=0;i<NPM;i++)
+                                {
+                                        pacman_array.push({pacman_Upx:pacman_Upx,
+                                                pacman_Upy:pacman_Upy,
+                                                pacman_Leftx:pacman_Leftx,
+                                                pacman_Lefty:pacman_Lefty,
+                                                pacman_Downx:pacman_Downx,
+                                                pacman_Downy:pacman_Downy,
+                                                pacman_Rightx:pacman_Rightx,
+                                                pacman_Righty:pacman_Righty,
+                                                pacman_l:pacman_l,
+                                                pacman_direction:random_Direction(),
+                                                pacman_size:pacman_size,
+                                                pacman_x:pacman_x,
+                                                pacman_y:pacman_y,
+                                                pacman_destinationX:pacman_destinationX,
+                                                pacman_destinationY:pacman_destinationY,
+                                                pacman_speed:pacman_speed,
+                                                pacman_placed:pacman_placed
+                                                });
+                                }
+                                
+                                var explode=new Array();
+                                var bombs_explodex=[0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+                                var bombs_explodey=[0,64,128,192,256,320,384,448,512,576,640,704,768,832,896];
+                                var explode_range=2;
+                                var tile_i=0;           //variable is used to get the bomb tile
+                                var tile_j=0;           //variable is used to get the bomb tile
+                                //to show the fire after bomb is exploded
+                                
+                                var fire_show=new Array();
+                                /******************character constants*********************/
+                                const BACKGROUND=0;
+                                const SOLID=1;
+                                const FRAGILE=2;
+                                const BUBBLEMAN=3;
+                                const PACMAN=4;
+                                const BOMB=5;
+                                /*INITIALIZE the background briks*/
+                                var initialize_map=0;
+                                //remove tile on explosion
+                                var remove_tile=new Array();
+                                var remove_i=-1,remove_j=-1;
+                                //SCORE
+                                var SCORE=0;
+                                
+                                //introducing goodies in the game
+                                var goodies=new Array();
+                                
+                                var NOBA=2;             //NUMBER OF BOMBS ALLOWED
+                                var just_once=0;                //variable used for once execution of code
+                                //var progress box coordinates
+                                
+                                var ghost_bomberman=false;
+                                //keydetection for bomberman
+                                document.onkeydown=function(e){
+                                e=e?e:window.event;
+                                console.log(e.keyCode+"key down");
+                                if(slider__on_take_key_input=="on")
+                                    {
+                                        return;
+                                    }
+                                switch(e.keyCode)
+                                {
+                                        case 38://up
+                                        l=0;
+                                        bomberman_direction=UP;
+                                        break;
+                                        case 87://up
+                                        l=0;
+                                        bomberman_direction=UP;
+                                        break;
+                                        case 40://down
+                                        l=0
+                                        bomberman_direction=DOWN;
+                                        break;
+                                        case 83://down
+                                        l=0;
+                                        bomberman_direction=DOWN;
+                                        break;
+                                        case 39://right
+                                        l=0;
+                                        bomberman_direction=RIGHT;
+                                        break;
+                                        case 68://right
+                                        l=0;
+                                        bomberman_direction=RIGHT;
+                                        break;
+                                        case 37://left
+                                        l=0;
+                                        bomberman_direction=LEFT;
+                                        break;
+                                        case 65:
+                                        l=0;
+                                        bomberman_direction=LEFT;
+                                        break;
+                                        case 75:
+                                        for(var i=0;i<pacman_array.length;i++)
+                                        {
+                                                pacman_array.splice(i);
+                                        }
+                                        for(var i=0;i<bubbleman_array.length;i++)
+                                        {
+                                                bubbleman_array.splice(i);
+                                        }
+                                        break;
+                                        case 32://space
+                                        console.log(bomberman_destinationX+" "+bomberman_destinationY);
+                                        for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bomberman_destinationX+(bomberman_size/2)>=(j*block_size)&&(bomberman_destinationX+bomberman_size/2)<=(j*block_size)+block_size&&bomberman_destinationY+(bomberman_size/2)>=i*block_size&&bomberman_destinationY+(bomberman_size/2)<=i*block_size+block_size)
+                                                        {
+                                                                tile_i=i;                       //current tile(column value) on which bomberman is 
+                                                                tile_j=j;                       //current tile(row value) on which bomberman is 
+                                                        }
+                                        }//row
+                                        }//col
+                                        if(appstate==ONMARKS)				//if appstate is onmarks then there is not value for tileMap[tile_i][tile_j] and we don't need to put the bomb just break the switch and set appstate=playing
+                                        {
+                                        	break;
+                                        }
+                                        if(appstate==PAUSE)
+                                        {
+                                        	break;
+                                        }
+                                        if(tileMap[tile_i][tile_j]!=BOMB)				//check if block already have bomb or not
+                                        {
+                                        console.log("i="+tile_i+" "+tile_j);
+                                        playSound(TIMER_SOUND,1);
+                                                if(explode.length<NOBA) 
+                                                {
+                                                explode.push({x:bomberman_destinationX,y:bomberman_destinationY,incrementer:0,timer:0,ti:tile_i,tj:tile_j});		//put bomb
+                                                tileMap[tile_i][tile_j]=BOMB;			//set the tileMap[tile_i][tile_j]=bomb so that you cannot another bomb over a bomb
+                                                }
+                                        }
+                                        break;
+                                        case 107:
+                                        FRAME_RATE-=3;
+                                        clearInterval(intern);
+                                        intern=setInterval(engine,FRAME_RATE);
+                                        console.log("frame_rate="+FRAME_RATE);
+                                        break;
+                                        case 109:
+                                        FRAME_RATE+=3;
+                                        clearInterval(intern);
+                                        intern=setInterval(engine,FRAME_RATE);
+                                        console.log("frame_rate="+FRAME_RATE);
+                                        break;
+                                }
+                                if(appstate==ONMARKS||appstate==PAUSE){
+                                        appstate=PLAYING;
+                                        $(".coin").show();// show after any keyboard hit
+                                        $(".bomb").show();//show after any keyboard hit
+                                        $(".range_bomb").show();
+                                        $("#play").hide();
+                                }
+                        }
+                        
+                        function random_Direction()
+                        {
+                                var random_number=Math.floor(Math.random()*100);
+                                if(random_number>0&&random_number<25)
+                                {
+                                        return LEFT;
+                                }
+                                else if(random_number>25&&random_number<50)
+                                {
+                                        return RIGHT;
+                                }
+                                else if(random_number>50&&random_number<75)
+                                {
+                                        return UP;
+                                }
+                                else{
+                                        return DOWN;
+                                }
+                        }
+                        window.addEventListener('mouseup',mouseUp,false);
+                        window.addEventListener('mousemove',mouseMove,false);
+                        
+                        function mouseUp(event){
+                                if(event.layerX||event.layerY==0) //firefox
+                                {
+                                        mouseupX=event.layerX;
+                                        mouseupY=event.layerY;
+                                        
+                                }
+                                else if(event.offsetX||event.offsetY==0)//opera
+                                {
+                                        mouseupX=event.offsetX;
+                                        mouseupY=event.offsetY;
+                                }
+                                if(appstate==PLAYING)
+                                {
+                                	console.log("mouse up and mouse up ="+mouseupX+"y="+mouseupY);
+                                       if(mouseupX>bomberman_destinationX&&mouseupX<bomberman_destinationX+bomberman_size)
+                                       {
+                                               if(mouseupY>bomberman_destinationY&&mouseupY<bomberman_destinationY+bomberman_size){
+                                                        playSound(CLICK_SOUND,1);
+                                                        appstate=OVER_PAUSE;
+                                                }
+                                        }
+                                        else if(event.which==1) {
+                                                event=$.Event('keydown');
+                                        		event.keyCode=32;               //if mouse left button is click anywhere on canvas except bomberman then put a bomb by trigger an event
+                                        		$(document).trigger(event);
+                                        }//else if
+                                }//PLAYING
+                                else if(appstate==OVER_PAUSE)
+                        {
+                        console.log(mouseupX+" "+mouseupY);
+                        }
+                        else if(appstate==SHOOT_CHARACTER)
+                        {
+                                        if(event.layerX||event.layerY==0) //firefox
+                                {
+                                        mouse_up_upX=event.layerX;
+                                        mouse_up_upY=event.layerY;
+                                }
+                                else if(event.offsetX||event.offsetY==0)//opera
+                                {
+                                        mouse_up_upX=event.offsetX;
+                                        mouse_up_upY=event.offsetY;
+                                        }
+                                }//else if
+                        
+                        }//mouseUp
+                        function mouseMove(event)
+                        {
+                                if(appstate==PLAYING)   {document.body.style.cursor="default";
+                                
+                                }
+                                else if(appstate==OVER_PAUSE)
+                                {
+                                        document.body.style.cursor="pointer";
+                                        if(event.layerX||event.layerY==0) //firefox
+                                {
+                                        mouse_move_upX=event.layerX;
+                                        mouse_move_upY=event.layerY;
+                                }
+		                        else if(event.offsetX||event.offsetY==0)//opera
+		                        {
+                                        mouse_move_upX=event.offsetX;
+                                        mouse_move_upY=event.offsetY;
+                                }
+                                       if(mouse_move_upX<bomberman_destinationX+(bomberman_size/2)&&mouse_move_upY<bomberman_destinationY)
+                                       { //up left
+                                                document.body.style.cursor="pointer";
+                                                context.fillStyle="white";
+                                                context.fillRect(bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                                context.drawImage(bomberman,384,96,48,48,bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                        }//if
+                                        else if(mouse_move_upX<bomberman_destinationX+(bomberman_size/2)&&mouse_move_upY>bomberman_destinationY+bomberman_size)
+                                        { //down left
+                                                context.fillStyle="white";
+                                                context.fillRect(bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                                context.drawImage(bomberman,384-48,96,48,48,bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                        }//else if
+                                        else if(mouse_move_upX>bomberman_destinationX+(bomberman_size/2) && mouse_move_upY<bomberman_destinationY)
+                                        {                     //up right
+                                                context.fillStyle="white";
+                                                context.fillRect(bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                                context.drawImage(bomberman,384,144,48,48,bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                        }//else if
+                                        else if(mouse_move_upX>bomberman_destinationX+(bomberman_size/2)&&mouse_move_upY>bomberman_destinationY+bomberman_size)
+                                        {//down right
+                                                context.fillStyle="white";
+                                                context.fillRect(bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                                context.drawImage(bomberman,384-48,144,48,48,bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                        }//else if
+                                        else if(mouse_move_upX>bomberman_destinationX&&mouse_move_upX<bomberman_destinationX+(bomberman_size/2))
+                                        { 				//middle left
+                                               if(mouse_move_upY>bomberman_destinationY&&mouse_move_upY<bomberman_destinationY+bomberman_size){
+                                                context.fillStyle="white";
+                                                context.fillRect(bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                                context.drawImage(bomberman,384-48,240,48,48,bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                                }//if
+                                        }//else if
+                                        else if(mouse_move_upX>bomberman_destinationX+(bomberman_size/2)&&mouse_move_upX<bomberman_destinationX+bomberman_size)
+                                        { 					//middle right
+                                                if(mouse_move_upY>bomberman_destinationY&&mouse_move_upY<bomberman_destinationY+bomberman_size){
+                                                context.fillStyle="white";
+                                                context.fillRect(bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                                context.drawImage(bomberman,384-48,192,48,48,bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                                }//if
+                                        }//else if
+                                        
+                                }//if appstate==OVER_PAUSE
+                                else if(appstate==SHOOT_CHARACTER)
+                                {
+                                        if(event.layerX||event.layerY==0) //firefox
+                                {
+                                        mouse_move_upX=event.layerX;
+                                        mouse_move_upY=event.layerY;
+                                }
+                                else if(event.offsetX||event.offsetY==0)//opera
+                                {
+                                        mouse_move_upX=event.offsetX;
+                                        mouse_move_upY=event.offsetY;
+                                        }
+                                }//else if
+                        }//mouseMove
+                        function showArrows()
+                        {
+                                var oupx=bomberman_destinationX+(bomberman_size/2)-(34/2);                              //up and down
+                                var oupy=bomberman_destinationY;
+                                
+                                var odowny=bomberman_destinationY+bomberman_size;
+                                var odownx=bomberman_destinationX+(bomberman_size/2)-(34/2);
+                                
+                               // var oleftx=bomberman_destinationX;
+                               //var olefty=bomberman_destinationY+(bomberman_size/2)-(34/2);
+                                
+                                var orightx=bomberman_destinationX+bomberman_size;
+                                var orighty=bomberman_destinationY+(bomberman_size/2)-(34/2);
+                                
+                                context.globalCompositeOperation="source-over";
+                                context.globalAlpha=1.0;
+                                context.drawImage(arrowImage,odownx,odowny,34,34);//down
+                                
+                                /****************checking if mouseUP event occurs on any of the arrow************/
+                                
+                                if(mouseupX!=0&&mouseupY!=0)
+                                {
+                                        if(mouseupX>orightx&&mouseupX<orightx+34)                    //check for right arrow clicked
+                                        {       
+                                        
+                                                if(mouseupY>orighty&&mouseupY<orighty+34)
+                                                {
+                                                                bomberman_direction=RIGHT;
+                                                                playSound(CLICK_SOUND,1);
+                                                                console.log("right");
+                                                                appstate=PLAYING;
+                                                }
+                                        }
+                                        
+                                        else if(mouseupX<bomberman_destinationX&&mouseupX>bomberman_destinationX-34) //check for the left arrow clicked
+                                        {
+                                                if(mouseupY>bomberman_destinationY+(bomberman_size/2)-(34/2) && mouseupY<bomberman_destinationY+(bomberman_size/2)+(34/2))
+                                                {
+                                                        bomberman_direction=LEFT;
+                                                        playSound(CLICK_SOUND,1);
+                                                        console.log("left");
+                                                                appstate=PLAYING;
+                                                }
+                                        }
+                                        else if(mouseupY>oupy-34&&mouseupY<oupy)                     //check for up arrow
+                                        {
+                                                if(mouseupX>oupx&&mouseupX<oupx+34)
+                                                {
+                                                        bomberman_direction=UP;
+                                                        playSound(CLICK_SOUND,1);
+                                                        console.log("up");
+                                                        appstate=PLAYING;
+                                                }
+                                        }
+                                        else if(mouseupY>odowny&&mouseupY<odowny+34)                //check for down arrow
+                                        {
+                                                if(mouseupX>odownx&&mouseupX<odownx+34)
+                                                {
+                                                        bomberman_direction=DOWN;
+                                                        playSound(CLICK_SOUND,1);
+                                                        console.log("down");
+                                                        appstate=PLAYING;
+                                                }
+                                        }
+                                
+                                context.save();
+                                context.setTransform(1,0,0,1,0,0);
+                                angleInRadians=270*Math.PI/180;
+                                context.translate(bomberman_destinationX+bomberman_size+(34/2),bomberman_destinationY+(bomberman_size/2));
+                                context.rotate(angleInRadians);
+                                context.drawImage(arrowImage,-(34/2),-(34/2),34,34);//right
+                                context.restore();
+                                
+                                context.save();
+                                context.setTransform(1,0,0,1,0,0);
+                                angleInRadians=90*Math.PI/180;
+                                context.translate(bomberman_destinationX-(34/2),bomberman_destinationY+(bomberman_size/2));
+                                context.rotate(angleInRadians);
+                                context.drawImage(arrowImage,-(34/2),-(34/2),34,34);//left
+                                context.restore();
+                                
+                                context.save();
+                                context.setTransform(1,0,0,1,0,0);
+                                angleInRadians=180*Math.PI/180;
+                                context.translate(bomberman_destinationX+(bomberman_size/2),bomberman_destinationY-17);
+                                context.rotate(angleInRadians);
+                                context.drawImage(arrowImage,-(34/2),-17,34,34);             //upbomberman_destinationX+(bomberman_size/2)-(34/2)
+                                context.restore();
+                                }// if mouseupx and mouseupy is not 0 
+                        }//showArrows
+                        function start()
+                        {
+                                        context.font="25px Segoe UI Light";
+                                        var phrase="click,tap or press any key to start the game";
+                                        context.fillStyle="orange";
+                                        context.font="normal 20px Arial,sans-serif";
+                                        var textSize=context.measureText(phrase);
+                                        var xCoord=(theCanvas.width/2)-(textSize.width/2);
+                                        context.fillText(phrase,xCoord,40);
+                                        context.drawImage(bomberman,192,144,48,48,0,0,bomberman_size,bomberman_size);
+                        }
+                        
+                        function bye()
+                        {
+                        context.fillStyle="orange";
+                        context.font="25px Segoe UI Light"
+                        context.fillText("GAME OVER",theCanvas.width/2-25,theCanvas.height/2-50);
+                        $("#reload").css("left",(theCanvas.width/2-30)+"px");
+                        $("#reload").css("top",(theCanvas.height/2+20)+"px");
+                        $("#reload").show();
+                        }
+                                /////////////*****************************THE ENGINE***********************///////////////
+                        function  engine()                      //state machine
+                        {
+                                switch(appstate)
+                                {
+                                        case INITIALIZE:
+                                        if(just_once==0)
+                                        {
+                                                initApp();
+                                                just_once=1;
+                                        }
+                                        break;
+                                        case ONMARKS:
+                                        if(just_once==1)
+                                        {
+                                                start();
+                                                just_once=2;
+                                        }
+                                        break;
+                                        case PLAYING:drawScreen();
+                                        break;
+                                        case OVER_PAUSE:
+                                        showArrows();
+                                        break;
+                                        case LOOSE: 
+                                        if(chances==0)
+                                        {
+                                                        bye();
+                                        }
+                                        else    
+                                        {
+                                                        chances--;
+                                                        SCORE-=10;
+                                                        playSound(CRASH,1);
+                                                        console.log("row="+row);
+                                                        console.log("col="+col);
+                                                        var new_b_x=Math.floor((Math.random()*(theCanvas.width-block_size))/block_size);
+                                                        var new_b_y=Math.floor((Math.random()*(theCanvas.height-block_size))/block_size);
+                                                        console.log("new_row="+new_b_x);
+                                                        console.log("new_col="+new_b_y);
+                                                        while(tileMap[new_b_y][new_b_x]!=BACKGROUND)
+                                                        {
+                                                               new_b_x=Math.floor((Math.random()*(theCanvas.width-block_size))/block_size);
+                                                               new_b_y=Math.floor((Math.random()*(theCanvas.height-block_size))/block_size);
+                                                        }
+                                                        bomberman_destinationX=new_b_x*block_size;       //new coordinate X of bomberman after collision
+                                                        bomberman_destinationY=new_b_y*block_size;       //new coordinate Y of bomberman after collision
+                                                        setTimeout(function(){SHIELD=true;},0);        //shield after death for some time
+                                                        setTimeout(function(){SHIELD=false;},5*1000); //remove shield after (2) seconds
+                                                        progressPool.push({case_number:0,progress_limit:300,progress_value:0});
+                                                        appstate=PLAYING;
+                                                }
+                                        break;
+                                        case SHOOT_CHARACTER:   //shoot any character and do nothing just change the cursor and shoot that character
+                                        drawScreen();
+                                        //this is just ot show black box for shooting 
+                                        for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(mouse_move_upX>j*block_size&&mouse_move_upX<j*block_size+block_size&&mouse_move_upX!=0&&mouse_move_upY!=0)
+                                                        {
+                                                               if(mouse_move_upY>i*block_size&&mouse_move_upY<i*block_size+block_size)
+                                                                {
+                                                                        context.strokeStyle="black";
+                                                                        context.strokeRect(j*block_size,i*block_size,block_size,block_size);
+                                                                }//show black box
+                                                                else{
+                                                                        context.strokeStyle="white";
+                                                                        context.strokeRect(j*block_size,i*block_size,block_size,block_size);
+                                                                }
+                                                        }
+                                                        else{
+                                                                context.strokeStyle="white";
+                                                                context.strokeRect(j*block_size,i*block_size,block_size,block_size);
+                                                        }
+                                                }//j
+                                        }//i
+                                        context.strokeStyle="black";
+                                        //check for mouse up event to blast the characters
+                                        for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(mouse_up_upX>j*block_size&&mouse_up_upX<j*block_size+block_size&&mouse_up_upX!=0&&mouse_up_upY!=0)
+                                                        {
+                                                               if(mouse_up_upY>i*block_size&&mouse_up_upY<i*block_size+block_size)
+                                                                {
+                                                                        for(var il=0;il<bubbleman_array.length;il++)
+                                                                        {
+                                                                               if(bubbleman_array[il].bubbleman_destinationX<mouse_up_upX&&bubbleman_array[il].bubbleman_destinationX>mouse_up_upX-block_size)
+                                                                                {
+                                                                                       if(bubbleman_array[il].bubbleman_destinationY<mouse_up_upY&&bubbleman_array[il].bubbleman_destinationY>mouse_up_upY-block_size)
+                                                                                        {
+                                                                                                console.log("remove bubbleman");
+                                                                                                bubbleman_array.splice(il,1);
+                                                                                                SCORE+=10;
+                                                                                                playSound(SCORE_SOUND,1);
+                                                                                        }//y
+                                                                                }//x
+                                                                        }//for bubbleman
+                                                                        for(var il=0;il<pacman_array.length;il++)
+                                                                        {
+                                                                               if(pacman_array[il].pacman_destinationX<mouse_up_upX&&pacman_array[il].pacman_destinationX>mouse_up_upX-block_size)
+                                                                                {
+                                                                                       if(pacman_array[il].pacman_destinationY<mouse_up_upY&&pacman_array[il].pacman_destinationY>mouse_up_upY-block_size)
+                                                                                        {
+                                                                                                console.log("remove pacman");
+                                                                                                pacman_array.splice(il,1);
+                                                                                                SCORE+=10;
+                                                                                                playSound(SCORE_SOUND,1);
+                                                                                        }//y
+                                                                                }//x
+                                                                        }//for pacman
+                                                                }//check condition for y
+                                                        }//checking condition for x
+                                                }//j
+                                        }//i
+                                        mouse_move_upX=0;
+                                        mouse_move_upY=0;
+                                        mouse_up_upX=0;
+                                        mouse_up_upY=0;
+                                        context.strokeStyle="black";
+                                        break;
+                                        case GAME_FINISH:
+														context.font="25px Segoe UI Light";
+														context.lineCap="round";
+                                                        var congo_phrase="Congratulations you are qualified for next level";
+                                                        context.fillStyle="orange";
+                                                        var textSize_congo=context.measureText(congo_phrase);
+                                                        var xCoord_congo=(theCanvas.width/2)-(textSize_congo.width/2);
+                                                        if(just_once==2)
+                                                        {
+                                                        		context.fillText(congo_phrase,xCoord_congo,(theCanvas.height/2)-10);
+                                                                just_once=3;
+                                                                playSound(WIN_SOUND,1);
+                                                                localStorage.level++;
+                                                                $("#reload").css("left",theCanvas.width/2-30+"px");
+                                                       			$("#reload").css("top",(theCanvas.height/2+20)+"px");
+                                                                $("#reload").show();
+                                                        }
+                                                        //setTimeout(function(){alert("asd");},2*1000);
+                                        break;
+                                        case PAUSE: //do nothing
+                                        break;
+                                }
+                        }//engine
+                        
+                        function itemLoaded(){
+                                loadCount++;
+                                $("#pro").val(loadCount);
+                                $("#loading_span").html(Math.floor((loadCount/19)*100)+"%");
+                                console.log("load count="+loadCount);
+                                if(loadCount>=ItemsToLoad){
+                                    $("#pro").fadeOut(200);
+                                    $("#loading").fadeOut(200);
+                                        clickSound.removeEventListener("canplaythrough",itemLoaded,false);
+                                        timerSound.removeEventListener("canplaythrough",itemLoaded,false);
+                                        explosion.removeEventListener("canplaythrough",itemLoaded,false);
+                                        crash.removeEventListener("canplaythrough",itemLoaded,false);
+                                        score.removeEventListener("canplaythrough",itemLoaded,false);
+                                        life_sound.removeEventListener("canplaythrough",itemLoaded,false);
+                                        $("#play").show();
+                                        appstate=ONMARKS;
+                                }
+                                else{
+                                        //unable to load resources
+                                }
+                        }
+                        function initApp()
+                        {
+                                clickSound=document.createElement("audio");//1
+                                audioType=supportedAudioFormat(clickSound);
+		                        clickSound.setAttribute("src","sounds/click."+audioType);
+		                        document.body.appendChild(clickSound);
+		                        clickSound.addEventListener("canplaythrough",itemLoaded,false);
+		                                
+		                        timerSound=document.createElement("audio");//2
+		                        timerSound.setAttribute("src","sounds/timer."+audioType);
+		                        document.body.appendChild(timerSound);
+		                        timerSound.addEventListener("canplaythrough",itemLoaded,false);
+		                                
+                                explosion=document.createElement("audio");//3
+                                explosion.setAttribute("src","sounds/explosion."+audioType);
+                                document.body.appendChild(explosion);
+                                explosion.addEventListener("canplaythrough",itemLoaded,false);
+                                
+                                crash=document.createElement("audio");//4
+                                crash.setAttribute("src","sounds/crash."+audioType);
+                                document.body.appendChild(crash);
+                                crash.addEventListener("canplaythrough",itemLoaded,false);
+                                
+                                score=document.createElement("audio");//5
+                                score.setAttribute("src","sounds/score+."+audioType);
+                                document.body.appendChild(score);
+                                score.addEventListener("canplaythrough",itemLoaded,false);
+                                
+                                life_sound=document.createElement("audio");//6
+                                life_sound.setAttribute("src","sounds/life_sound."+audioType);
+                                document.body.appendChild(life_sound);
+                                life_sound.addEventListener("canplaythrough",itemLoaded,false);
+                                
+                                win_sound=document.createElement("audio");//7
+                                win_sound.setAttribute("src","sounds/win."+audioType);
+                                document.body.appendChild(win_sound);
+                                win_sound.addEventListener("canplaythrough",itemLoaded,false);
+                                
+                                bomberman=new Image();//8
+                                bomberman.src="img/base.png";
+                                bomberman.onload=itemLoaded;
+                                
+                                arrowImage=new Image();//9
+                                arrowImage.src="img/arrow.png";
+                                arrowImage.onload=itemLoaded;
+                                
+                                bubbleman=new Image();//10
+                                bubbleman.src="img/yeti_64x64.png";
+                                bubbleman.onload=itemLoaded;
+                                
+                                pacman=new Image();//11
+                                pacman.src="img/langolier.png";
+                                pacman.onload=itemLoaded;
+                                
+                                background_blocks=new Image();//12
+                                background_blocks.src="img/block-sheet1.png";
+                                background_blocks.onload=itemLoaded;
+                                
+                                bombs=new Image();//13
+                                bombs.src="img/bomb_64x64_2.png";
+                                bombs.onload=itemLoaded;
+                                
+                                fire=new Image();//14
+                                fire.src="img/explosion.png";
+                                fire.onload=itemLoaded;
+                                
+                                //GOODIE
+                                goodies_Image=new Image();//15
+                                goodies_Image.src="img/Turbo icon Blue - 512.png";
+                                goodies_Image.onload=itemLoaded;
+                                
+                                crossfire=new Image();//16
+                                crossfire.src="img/crossfire.png";
+                                crossfire.onload=itemLoaded;
+                                
+                                /*teleport=new Image();//17
+                                teleport.src="img/endlevel-sheet0.png";
+                                teleport.onload=itemLoaded;*/
+                                
+                                coin=new Image();//17
+                                coin.src="img/clipboard0-horz.png";
+                                coin.onload=itemLoaded;
+                                
+                                ghost=new Image();//18
+                                ghost.src="img/ghost.jpg";
+                                ghost.onload=itemLoaded;
+                                
+                               /* black_hole=new Image();//19
+                                black_hole.src="img/firehole.png";
+                                black_hole.onload=itemLoaded;
+                                */
+                                shield_Image=new Image();//19
+                                shield_Image.src="img/shield1.png";
+                                shield_Image.onload=itemLoaded;
+                        }
+                        function updatexy(){
+                                if(bomberman_direction==UP){
+                                        if(l>Upx.length-1){
+                                                l=0;
+                                        }
+                                        else{
+                                                x=Upx[l];
+                                                y=Upy[l];
+                                                bomberman_destinationY-=bomberman_speed;
+                                                if(ghost_bomberman==false)
+                                                {
+                                                //check for next tile
+                                                for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                        //these nested ifs are used to check that if next tile is block then the adding or subracting the precison values bomber should be allowed to move 
+                                                       if(bomberman_destinationX>j*block_size&&bomberman_destinationX<j*block_size+block_size&&bomberman_destinationY>i*block_size&&bomberman_destinationY<i*block_size+block_size)
+                                                        {
+                                                                        if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                        {
+                                                                               if(bomberman_destinationX+10>j*block_size&&bomberman_destinationX+10<j*block_size+block_size&&bomberman_destinationY>i*block_size&&bomberman_destinationY<i*block_size+block_size)
+                                                                                {
+                                                                                       if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                                        {
+                                                                                                bomberman_destinationY+=bomberman_speed;
+                                                                                                break;
+                                                                                        }
+                                                                                }
+                                                                                
+                                                                        }
+                                                                        //here we are not using nested ifs because we don't want bomber to move the preciosion values inside the bomb tile 
+                                                                        else if(tileMap[i][j]==BOMB)
+                                                                        {
+                                                                               if(bomberman_destinationX>=j*block_size&&bomberman_destinationX<=j*block_size+block_size&&bomberman_destinationY-28>i*block_size&&bomberman_destinationY-28<i*block_size+block_size)
+                                                                                {
+                                                                                        bomberman_destinationY+=bomberman_speed;
+                                                                                }
+                                                                        }
+                                                        }
+                                                        else if(bomberman_destinationX+bomberman_size>j*block_size&&bomberman_destinationX+bomberman_size<j*block_size+block_size&&bomberman_destinationY>i*block_size&&bomberman_destinationY<i*block_size+block_size)
+                                                        {
+                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                {
+                                                                       if(bomberman_destinationX+bomberman_size-10>j*block_size&&bomberman_destinationX+bomberman_size-10<j*block_size+block_size&&bomberman_destinationY>i*block_size&&bomberman_destinationY<i*block_size+block_size)
+                                                                        {
+                                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                                {
+                                                                                        bomberman_destinationY+=bomberman_speed;
+                                                                                        break;
+                                                                                }
+                                                                        }
+                                                                }
+                                                                else if(tileMap[i][j]==BOMB)
+                                                                        {
+                                                                               if(bomberman_destinationX+bomberman_size>=j*block_size&&bomberman_destinationX+bomberman_size<=j*block_size+block_size&&bomberman_destinationY-28>i*block_size&&bomberman_destinationY-28<i*block_size+block_size)
+                                                                                {
+                                                                                        bomberman_destinationY+=bomberman_speed;
+                                                                                }
+                                                                        }
+                                                        }
+                                        }//row
+                                        }//col
+                                        }//if
+                                                if(bomberman_destinationY<0)                    //check for upper boundary
+                                                {
+                                                        bomberman_destinationY=0;
+                                                }
+                                                l++;                                    //increment frame_counter so that next frame get dipslayed next time
+                                        }
+                                }
+                                else if(bomberman_direction==DOWN){
+                                        if(l>Downx.length-1){
+                                                l=0;
+                                        }
+                                        x=Downx[l];
+                                        y=Downy[l];
+                                        bomberman_destinationY+=bomberman_speed;
+                                        if(ghost_bomberman==false)
+                                        {
+                                        //check for next tile
+                                                for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bomberman_destinationX>j*block_size&&bomberman_destinationX<j*block_size+block_size&&bomberman_destinationY+bomberman_size>i*block_size&&bomberman_destinationY+bomberman_size<i*block_size+block_size)
+                                                        {
+                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                {
+                                                                       if(bomberman_destinationX+10>j*block_size&&bomberman_destinationX+10<j*block_size+block_size&&bomberman_destinationY+bomberman_size>i*block_size&&bomberman_destinationY+bomberman_size<i*block_size+block_size)
+                                                                        {
+                                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                                {       bomberman_destinationY-=bomberman_speed;
+                                                                                        break;
+                                                                                }
+                                                                        }
+                                                                }
+                                                                else if(tileMap[i][j]==BOMB)
+                                                                        {
+                                                                               if(bomberman_destinationX>=j*block_size&&bomberman_destinationX<=j*block_size+block_size&&bomberman_destinationY+bomberman_size+28>i*block_size&&bomberman_destinationY+bomberman_size+28<i*block_size+block_size)
+                                                                                {
+                                                                                        bomberman_destinationY-=bomberman_speed;
+                                                                                }
+                                                                        }
+                                                        }
+                                                        else if(bomberman_destinationX+bomberman_size>j*block_size&&bomberman_destinationX+bomberman_size<j*block_size+block_size&&bomberman_destinationY+bomberman_size>i*block_size&&bomberman_destinationY+bomberman_size<i*block_size+block_size)
+                                                        {
+                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                {
+                                                                       if(bomberman_destinationX+bomberman_size-10>j*block_size&&bomberman_destinationX+bomberman_size-10<j*block_size+block_size&&bomberman_destinationY+bomberman_size>i*block_size&&bomberman_destinationY+bomberman_size<i*block_size+block_size)
+                                                                        {
+                                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                                {
+                                                                                        bomberman_destinationY-=bomberman_speed;
+                                                                                        break;
+                                                                                }
+                                                                        }
+                                                                        
+                                                                }
+                                                                else if(tileMap[i][j]==BOMB)
+                                                                        {
+                                                                               if(bomberman_destinationX+bomberman_size>=j*block_size&&bomberman_destinationX+bomberman_size<=j*block_size+block_size&&bomberman_destinationY+bomberman_size+28>i*block_size&&bomberman_destinationY+bomberman_size+28<i*block_size+block_size)
+                                                                                {
+                                                                                        bomberman_destinationY-=bomberman_speed;
+                                                                                }
+                                                                        }
+                                                        }
+                                        }//row
+                                        }//col
+                                        }//if
+                                        if(bomberman_destinationY+bomberman_size>theCanvas.height){
+                                                bomberman_destinationY=theCanvas.height-bomberman_size;
+                                        }
+                                        l++;
+                                }
+                                else if(bomberman_direction==RIGHT){
+                                        if(l>Rightx.length-1){
+                                                l=0;
+                                        }
+                                        x=Rightx[l];
+                                        y=Righty[l];
+                                        bomberman_destinationX+=bomberman_speed;
+                                        if(ghost_bomberman==false)
+                                        {
+                                        //check for next tile
+                                                for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bomberman_destinationX+bomberman_size>j*block_size&&bomberman_destinationX+bomberman_size<j*block_size+block_size&&bomberman_destinationY>i*block_size&&bomberman_destinationY<i*block_size+block_size)
+                                                        {
+                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                {
+                                                                       if(bomberman_destinationX+bomberman_size-10>j*block_size&&bomberman_destinationX+bomberman_size-10<j*block_size+block_size&&bomberman_destinationY+10>i*block_size&&bomberman_destinationY+10<i*block_size+block_size)
+                                                                        {
+                                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                                {
+                                                                                        bomberman_destinationX-=bomberman_speed;
+                                                                                        break;
+                                                                                }
+                                                                        }
+                                                                }
+                                                                else if(tileMap[i][j]==BOMB)
+                                                                {
+                                                                       if(bomberman_destinationX+bomberman_size+28>j*block_size&&bomberman_destinationX+bomberman_size+28<j*block_size+block_size&&bomberman_destinationY>i*block_size&&bomberman_destinationY<i*block_size+block_size)
+                                                                        {
+                                                                                bomberman_destinationX-=bomberman_speed;
+                                                                        }
+                                                                }
+                                                        }
+                                                        else if(bomberman_destinationX+bomberman_size>j*block_size&&bomberman_destinationX+bomberman_size<j*block_size+block_size&&bomberman_destinationY+bomberman_size>i*block_size&&bomberman_destinationY+bomberman_size<i*block_size+block_size)
+                                                        {
+                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                {
+                                                                       if(bomberman_destinationX+bomberman_size-10>j*block_size&&bomberman_destinationX+bomberman_size-10<j*block_size+block_size&&bomberman_destinationY+bomberman_size-10>i*block_size&&bomberman_destinationY+bomberman_size-10<i*block_size+block_size)
+                                                                        {
+                                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                                {
+                                                                                        bomberman_destinationX-=bomberman_speed;
+                                                                                        break;
+                                                                                }
+                                                                        }
+                                                                }
+                                                                else if(tileMap[i][j]==BOMB)
+                                                                {
+                                                                       if(bomberman_destinationX+bomberman_size+28>j*block_size&&bomberman_destinationX+bomberman_size+28<j*block_size+block_size&&bomberman_destinationY+bomberman_size>i*block_size&&bomberman_destinationY+bomberman_size<i*block_size+block_size)
+                                                                        {
+                                                                                bomberman_destinationX-=bomberman_speed;
+                                                                        }
+                                                                }
+                                                        }
+                                        }//row
+                                        }//col
+                                        }//if
+                                        if(bomberman_destinationX>theCanvas.width-bomberman_size){
+                                                bomberman_destinationX=theCanvas.width-bomberman_size;
+                                        }
+                                        l++;
+                                }
+                                else if(bomberman_direction==LEFT){
+                                        if(l>Leftx.length-1){
+                                                l=0;
+                                        }
+                                        x=Leftx[l];
+                                        y=Lefty[l];
+                                        bomberman_destinationX-=bomberman_speed;
+                                        if(ghost_bomberman==false)
+                                        {
+                                        //check for next tile
+                                                for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bomberman_destinationX>j*block_size&&bomberman_destinationX<j*block_size+block_size&&bomberman_destinationY>i*block_size&&bomberman_destinationY<i*block_size+block_size)
+                                                        {
+                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                {
+                                                                       if(bomberman_destinationX+10>j*block_size&&bomberman_destinationX+10<j*block_size+block_size&&bomberman_destinationY+10>i*block_size&&bomberman_destinationY+10<i*block_size+block_size)
+                                                                        {
+                                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                                {
+                                                                                        bomberman_destinationX+=bomberman_speed;
+                                                                                        break;
+                                                                                }
+                                                                        }
+                                                                }
+                                                                else if(tileMap[i][j]==BOMB)
+                                                                {
+                                                                       if(bomberman_destinationX-28>=j*block_size&&bomberman_destinationX<j*block_size+block_size&&bomberman_destinationY>i*block_size&&bomberman_destinationY<i*block_size+block_size)
+                                                                        {
+                                                                                bomberman_destinationX+=bomberman_speed;
+                                                                        }
+                                                                }
+                                                        }
+                                                        else if(bomberman_destinationX>j*block_size&&bomberman_destinationX<j*block_size+block_size&&bomberman_destinationY+bomberman_size>i*block_size&&bomberman_destinationY+bomberman_size<i*block_size+block_size)
+                                                        {
+                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                {
+                                                                       if(bomberman_destinationX+10>j*block_size&&bomberman_destinationX+10<j*block_size+block_size&&bomberman_destinationY+bomberman_size-10>i*block_size&&bomberman_destinationY+bomberman_size-10<i*block_size+block_size)
+                                                                        {
+                                                                                if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE)
+                                                                                {
+                                                                                        bomberman_destinationX+=bomberman_speed;
+                                                                                        break;
+                                                                                        
+                                                                                }
+                                                                        }
+                                                                }
+                                                                else if(tileMap[i][j]==BOMB)
+                                                                {
+                                                                       if(bomberman_destinationX-28>=j*block_size&&bomberman_destinationX<j*block_size+block_size&&bomberman_destinationY+bomberman_size>i*block_size&&bomberman_destinationY+bomberman_size<i*block_size+block_size)
+                                                                        {
+                                                                                bomberman_destinationX+=bomberman_speed;
+                                                                        }
+                                                                }
+                                                        }
+                                        }//row
+                                        }//col
+                                        }//if
+                                        if(bomberman_destinationX<0)
+                                        {
+                                                bomberman_destinationX=0;
+                                        }
+                                        l++;
+                                }
+                                //check_bomberman_goodie_collision();
+                        }//updatexy
+                        function bubbleman_updatexy_i(bcn){                     /******************Bubbleman Character Number**************************/
+                                //console.log("i="+i+" "+bubbleman_array[i].bubbleman_direction);
+                                var bd=bubbleman_array[bcn].bubbleman_direction;
+                                var bl=bubbleman_array[bcn].bubbleman_l;
+                                var bupxl=bubbleman_array[bcn].bubbleman_Upx.length;
+                                var bdownxl=bubbleman_array[bcn].bubbleman_Downx.length;
+                                var brightxl=bubbleman_array[bcn].bubbleman_Rightx.length;
+                                var bleftxl=bubbleman_array[bcn].bubbleman_Leftx.length;
+                                var bupx=bubbleman_array[bcn].bubbleman_Upx;
+                                var bupy=bubbleman_array[bcn].bubbleman_Upy;
+                                var bdownx=bubbleman_array[bcn].bubbleman_Downx;
+                                var bdowny=bubbleman_array[bcn].bubbleman_Downy;
+                                var bleftx=bubbleman_array[bcn].bubbleman_Leftx;
+                                var blefty=bubbleman_array[bcn].bubbleman_Lefty;
+                                var brightx=bubbleman_array[bcn].bubbleman_Rightx;
+                                var brighty=bubbleman_array[bcn].bubbleman_Righty;
+                                var bx=bubbleman_array[bcn].bubbleman_x;
+                                var by=bubbleman_array[bcn].bubbleman_y;
+                                var bdestX=bubbleman_array[bcn].bubbleman_destinationX;
+                                var bdestY=bubbleman_array[bcn].bubbleman_destinationY;
+                                var bspeed=bubbleman_array[bcn].bubbleman_speed; 
+                                if(bd==UP){
+                                        if(bl>bupxl-1){
+                                                bl=0;
+                                        }
+                                        else{
+                                                bx=bupx[bl];
+                                                by=bupy[bl];
+                                                bdestY-=bspeed;
+                                                for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bdestX>j*block_size&&bdestX<j*block_size+block_size&&bdestY>i*block_size&&bdestY<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestY+=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                                        else if(bdestX+bubbleman_size>j*block_size&&bdestX+bubbleman_size<j*block_size+block_size&&bdestY>i*block_size&&bdestY<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestY+=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                        }//row
+                                        }//col
+                                                if(bdestY<0)                    //check for upper boundary
+                                                {
+                                                        bdestY=0;
+                                                        bd=random_Direction();
+                                                }
+                                                bl++;                                   //increment frame_counter so that next frame get dipslayed next time
+                                        }
+                                }
+                                else if(bd==DOWN){
+                                        if(bl>bdownxl-1){
+                                                bl=0;
+                                        }
+                                        else
+                                        {
+                                        bx=bdownx[bl];
+                                        by=bdowny[bl];
+                                        bdestY+=bspeed;
+                                        for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bdestX>j*block_size&&bdestX<j*block_size+block_size&&bdestY+bubbleman_size>i*block_size&&bdestY+bubbleman_size<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestY-=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                                        else if(bdestX+bubbleman_size>j*block_size&&bdestX+bubbleman_size<j*block_size+block_size&&bdestY+bubbleman_size>i*block_size&&bdestY+bubbleman_size<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestY-=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                        }//row
+                                        }//col
+                                        if(bdestY+bubbleman_size>theCanvas.height)
+                                        {
+                                                //bdestY=theCanvas.height-bubbleman_size;
+                                                bdestY=theCanvas.height-bubbleman_size;
+                                                bd=random_Direction();
+                                        }
+                                        bl++;
+                                        }
+                                }
+                                else if(bd==RIGHT){
+                                        if(bl>brightxl-1){
+                                                bl=0;
+                                        }
+                                        else{
+                                        bx=brightx[bl];
+                                        by=brighty[bl];
+                                        bdestX+=bspeed;
+                                        for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bdestX+bubbleman_size>j*block_size&&bdestX+bubbleman_size<j*block_size+block_size&&bdestY+2>i*block_size&&bdestY+2<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestX-=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                                        else if(bdestX+bubbleman_size>j*block_size&&bdestX+bubbleman_size<j*block_size+block_size&&bdestY+bubbleman_size-2>i*block_size&&bdestY-2+bubbleman_size<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestX-=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                        }//row
+                                        }//col
+                                        if(bdestX>theCanvas.width-bubbleman_size){
+                                                bdestX=theCanvas.width-bubbleman_size;
+                                                bd=random_Direction();
+                                        }
+                                        bl++;
+                                        }
+                                }
+                                else if(bd==LEFT){
+                                        if(bl>bleftxl-1){
+                                                bl=0;
+                                        }
+                                        else{
+                                        bx=bleftx[bl];
+                                        by=blefty[bl];
+                                        bdestX-=bspeed;
+                                        for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bdestX>j*block_size&&bdestX<j*block_size+block_size&&bdestY+2>i*block_size&&bdestY+2<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestX+=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                                        else if(bdestX>j*block_size&&bdestX<j*block_size+block_size&&bdestY+bubbleman_size-2>i*block_size&&bdestY+bubbleman_size-2<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestX+=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                        }//row
+                                        }//col
+                                        if(bdestX<0){
+                                                bdestX=0;
+                                                bd=random_Direction();
+                                        }
+                                        bl++;
+                                        }
+                                }
+                                /********Variables which are updated ***************/
+                                bubbleman_array[bcn].bubbleman_direction=bd;
+                                bubbleman_array[bcn].bubbleman_l=bl;
+                                bubbleman_array[bcn].bubbleman_x=bx;
+                                bubbleman_array[bcn].bubbleman_y=by;
+                                bubbleman_array[bcn].bubbleman_destinationX=bdestX;
+                                bubbleman_array[bcn].bubbleman_destinationY=bdestY;
+                        }//updatexy
+                        
+                        function pacman_updatexy_i(bcn){                        /******************pacman Character
+Number**************************/
+                                //console.log("i="+i+" "+pacman_array[i].pacman_direction);
+                                var bd=pacman_array[bcn].pacman_direction;
+                                var bl=pacman_array[bcn].pacman_l;
+                                var bupxl=pacman_array[bcn].pacman_Upx.length;
+                                var bdownxl=pacman_array[bcn].pacman_Downx.length;
+                                var brightxl=pacman_array[bcn].pacman_Rightx.length;
+                                var bleftxl=pacman_array[bcn].pacman_Leftx.length;
+                                var bupx=pacman_array[bcn].pacman_Upx;
+                                var bupy=pacman_array[bcn].pacman_Upy;
+                                var bdownx=pacman_array[bcn].pacman_Downx;
+                                var bdowny=pacman_array[bcn].pacman_Downy;
+                                var bleftx=pacman_array[bcn].pacman_Leftx;
+                                var blefty=pacman_array[bcn].pacman_Lefty;
+                                var brightx=pacman_array[bcn].pacman_Rightx;
+                                var brighty=pacman_array[bcn].pacman_Righty;
+                                var bx=pacman_array[bcn].pacman_x;
+                                var by=pacman_array[bcn].pacman_y;
+                                var bdestX=pacman_array[bcn].pacman_destinationX;
+                                var bdestY=pacman_array[bcn].pacman_destinationY;
+                                var bspeed=pacman_array[bcn].pacman_speed; 
+                                if(bd==UP){
+                                        if(bl>bupxl-1){
+                                                bl=0;
+                                        }
+                                        else{
+                                                bx=bupx[bl];
+                                                by=bupy[bl];
+                                                bdestY-=bspeed;
+                                                for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bdestX>j*block_size&&bdestX<j*block_size+block_size&&bdestY>i*block_size&&bdestY<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestY+=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                                        else if(bdestX+pacman_size>j*block_size&&bdestX+pacman_size<j*block_size+block_size&&bdestY>i*block_size&&bdestY<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestY+=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                        }//row
+                                        }//col
+                                                if(bdestY<0)                    //check for upper boundary
+                                                {
+                                                        bdestY=0;
+                                                        bd=random_Direction();
+                                                }
+                                                bl++;                                   //increment frame_counter so that next frame get dipslayed next time
+                                        }
+                                }
+                                else if(bd==DOWN){
+                                        if(bl>bdownxl-1){
+                                                bl=0;
+                                        }
+                                        else
+                                        {
+                                        bx=bdownx[bl];
+                                        by=bdowny[bl];
+                                        bdestY+=bspeed;
+                                        for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bdestX>j*block_size&&bdestX<j*block_size+block_size&&bdestY+pacman_size>i*block_size&&bdestY+pacman_size<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestY-=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                                        else if(bdestX+pacman_size>j*block_size&&bdestX+pacman_size<j*block_size+block_size&&bdestY+pacman_size>i*block_size&&bdestY+pacman_size<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestY-=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                        }//row
+                                        }//col
+                                        if(bdestY+pacman_size>theCanvas.height){
+                                                //bdestY=theCanvas.height-pacman_size;
+                                                bdestY=theCanvas.height-pacman_size;
+                                                bd=random_Direction();
+                                        }
+                                        bl++;
+                                        }
+                                }
+                                else if(bd==RIGHT){
+                                        if(bl>brightxl-1){
+                                                bl=0;
+                                        }
+                                        else{
+                                        bx=brightx[bl];
+                                        by=brighty[bl];
+                                        bdestX+=bspeed;
+                                        for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bdestX+pacman_size>j*block_size&&bdestX+pacman_size<j*block_size+block_size&&bdestY+2>i*block_size&&bdestY+2<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestX-=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                                        else if(bdestX+pacman_size>j*block_size&&bdestX+pacman_size<j*block_size+block_size&&bdestY+pacman_size-2>i*block_size&&bdestY-2+pacman_size<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestX-=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                        }//row
+                                        }//col
+                                        if(bdestX>theCanvas.width-pacman_size){
+                                                bdestX=theCanvas.width-pacman_size;
+                                                bd=random_Direction();
+                                        }
+                                        bl++;
+                                        }
+                                }
+                                else if(bd==LEFT){
+                                        if(bl>bleftxl-1){
+                                                bl=0;
+                                        }
+                                        else{
+                                        bx=bleftx[bl];
+                                        by=blefty[bl];
+                                        bdestX-=bspeed;
+                                        for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                       if(bdestX>j*block_size&&bdestX<j*block_size+block_size&&bdestY+2>i*block_size&&bdestY+2<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestX+=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                                        else if(bdestX>j*block_size&&bdestX<j*block_size+block_size&&bdestY+pacman_size-2>i*block_size&&bdestY+pacman_size-2<i*block_size+block_size)
+                                                        {
+                                                               if(tileMap[i][j]==SOLID||tileMap[i][j]==FRAGILE||tileMap[i][j]==BOMB)
+                                                                {
+                                                                        bdestX+=bspeed;
+                                                                        bd=random_Direction();
+                                                                        break;
+                                                                }
+                                                        }
+                                        }//row
+                                        }//col
+                                        if(bdestX<0){
+                                                bdestX=0;
+                                                bd=random_Direction();
+                                        }
+                                        bl++;
+                                        }
+                                }
+                                /********Variables which are updated ***************/
+                                pacman_array[bcn].pacman_direction=bd;
+                                pacman_array[bcn].pacman_l=bl;
+                                pacman_array[bcn].pacman_x=bx;
+                                pacman_array[bcn].pacman_y=by;
+                                pacman_array[bcn].pacman_destinationX=bdestX;
+                                pacman_array[bcn].pacman_destinationY=bdestY;
+                        }//updatexy
+                        
+                        function drawScreen(){
+                                context.imageSmoothingEnabled=true;
+                                context.fillStyle="white";
+                                context.fillRect(0,0,theCanvas.width,theCanvas.height);
+                                if(initialize_map==0)
+                                {
+                                        console.log(theCanvas.width," "+theCanvas.height);
+                                         row=Math.floor(theCanvas.width/block_size);            //Number of bricks to place horizontally(left-right)
+                                         col=Math.floor((theCanvas.height)/block_size);         //Number of bricks to place vertically(top-bottom)
+                                        //initialize the map 
+                                        for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                        tileMap[i] = (tileMap[i] === undefined) ? [] : tileMap[i];
+                                                        if(i==0&&j==0)
+                                                        {
+                                                                tileMap[i][j]=BACKGROUND;
+                                                        }
+                                                        else if((Math.floor(Math.random()*10))==6||(Math.floor(Math.random()*10))==7)
+                                                        {
+                                                                tileMap[i][j]=SOLID;                                    //border tiles
+                                                        }
+                                                        else if((Math.floor(Math.random()*10))==5||(Math.floor(Math.random()*10))==7||(Math.floor(Math.random()*10))==6)
+                                                        {
+                                                                tileMap[i][j]=FRAGILE;                                  //blocks
+                                                        }
+                                                        else
+                                                        {
+                                                                tileMap[i][j]=BACKGROUND;          //nothing i.e background 
+                                                        }
+                                        }//row
+                                        }//col
+                                        //Place All bubbleman randomly
+                                        for(var i=bubbleman_array.length-1;i>=0;i--)
+                                {
+                                        while(bubbleman_array[i].bubbleman_placed==false)
+                                        {
+                                                var random_i=Math.floor(Math.random()*col);
+                                                var random_j=Math.floor(Math.random()*row);
+                                                while(random_i==0||random_j==0)
+                                                {
+                                                        random_i=Math.floor(Math.random()*col);
+                                                        random_j=Math.floor(Math.random()*row);
+                                                }
+                                                if(tileMap[random_i][random_j]==BACKGROUND)
+                                                {
+                                                        //tileMap[random_i][random_j]=BUBBLEMAN;                //bubbleman
+                                                        bubbleman_array[i].bubbleman_destinationX=random_j*block_size;
+                                                        bubbleman_array[i].bubbleman_destinationY=random_i*block_size;
+                                                        bubbleman_array[i].bubbleman_direction=random_Direction();
+                                                        bubbleman_array[i].bubbleman_placed=true;
+                                                }
+                                        }
+                                }
+                                //place all PACman randomly
+                                for(var i=pacman_array.length-1;i>=0;i--)
+                                {
+                                        while(pacman_array[i].pacman_placed==false)
+                                        {
+                                                var random_i=Math.floor(Math.random()*col);
+                                                var random_j=Math.floor(Math.random()*row);
+                                                while(random_i==0||random_j==0)
+                                                {
+                                                        random_i=Math.floor(Math.random()*col);
+                                                        random_j=Math.floor(Math.random()*row);
+                                                }
+                                                if(tileMap[random_i][random_j]==BACKGROUND)
+                                                {
+                                                        pacman_array[i].pacman_destinationX=random_j*block_size;
+                                                        pacman_array[i].pacman_destinationY=random_i*block_size;
+                                                        pacman_array[i].pacman_direction=random_Direction();
+                                                        pacman_array[i].pacman_placed=true;
+                                                }
+                                        }
+                                }
+                                        initialize_map=1;
+                                }//initialize_map is now set 1 thus just once set the map
+                               
+
+                                //drawing blocks  and border blocks on the screen
+                                gridX=0,gridY=0;
+                                for(var i=0;i<=col;i++)
+                                {       gridY=i*block_size;
+                                        for(var j=0;j<=row-1;j++)
+                                        {
+                                                gridX=j*block_size;
+                                                if(tileMap[i][j]==SOLID)     //for border blocks
+                                                {
+                                                context.drawImage(background_blocks,0,0,64,64,gridX,gridY,block_size,block_size);
+                                                }
+                                                else if(tileMap[i][j]==FRAGILE)                 //for blocks randomly on the play ground
+                                                {   
+                                                        context.drawImage(background_blocks,64,0,64,64,gridX,gridY,block_size,block_size);
+                                                }
+                                                //context.fillStyle="black";
+                                                //context.strokeRect(gridX,gridY,block_size,block_size);
+                                        }
+                                }// drawing tile Map on each frame
+                                //To check for next level
+                                if(bubbleman_array.length<=0&&pacman_array.length<=0)
+                                {
+                                        appstate=GAME_FINISH;
+                                }
+                                //Display goodies
+                                for(var i=goodies.length-1;i>=0;i--)
+                                {
+                                        var what=goodies[i].goodie_number;
+                                        switch(what)
+                                                        {
+                                                                case 0: context.drawImage(bomberman,0,48+48,48,48,goodies[i].x*block_size,goodies[i].y*block_size,bomberman_size,bomberman_size);      //LIFE++
+                                                                break;
+                                                                case 1: context.drawImage(shield_Image,0,0,204,204,goodies[i].x*block_size,goodies[i].y*block_size,block_size,block_size);  //SHIELD
+                                                                break;
+                                                                case 2: context.drawImage(goodies_Image,0,0,128,128,goodies[i].x*block_size,goodies[i].y*block_size,block_size,block_size); //SPEED
+                                                                break;
+                                                                case 3: //context.drawImage(teleport,0,0,64,64,goodies[i].x*block_size,goodies[i].y*block_size,block_size,block_size);  //TELEPORT
+                                                                break;
+                                                                case 4: context.drawImage(bombs,128-50,896-50,50,50,goodies[i].x*block_size,goodies[i].y*block_size,block_size,block_size);    //INCREASE FIRE RANGE
+                                                                break;
+                                                                case 5: context.drawImage(crossfire,0,0,401,401,goodies[i].x*block_size,goodies[i].y*block_size,block_size,block_size); //SHOOT
+                                                                break;
+                                                                case 6: //context.drawImage(black_hole,0,0,48,48,goodies[i].x*block_size,goodies[i].y*block_size,block_size,block_size);        //BLACK HOLE
+                                                                break;
+                                                                case 7: context.drawImage(coin,goodies[i].coins_frameX,coins_frameY,120,120,goodies[i].x*block_size,goodies[i].y*block_size,block_size,block_size); //COIN
+                                                                if(goodies[i].coins_frameX!=undefined)
+                                                                {
+                                                                        goodies[i].coins_frameX+=120
+                                                                        if(goodies[i].coins_frameX>8*120)
+                                                                        {
+                                                                                goodies[i].coins_frameX=0;
+                                                                        }
+                                                                }
+                                                                break;
+                                                                case 8: //INCREASE NO OF BOMBS BOMBERMAN CAN PUT
+                                                                context.drawImage(bombs,64,0,64,64,goodies[i].x*block_size,goodies[i].y*block_size,block_size,block_size);
+                                                                break;
+                                                                case 9: //GHOST MODE
+                                                                context.drawImage(ghost,0,0,204,204,goodies[i].x*block_size,goodies[i].y*block_size,block_size,block_size);
+                                                                break;
+                                                        }
+                                }
+							   //moving bomberman
+                                updatexy();
+                                if(ghost_bomberman==true)
+                                {
+                                        context.globalAlpha=0.5;
+                                }
+                                context.drawImage(bomberman,x,y,48,48,bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                context.globalAlpha=1.0;
+                                if(SHIELD==true)
+                                {
+                                context.strokeStyle="black";
+                                context.strokeRect(bomberman_destinationX,bomberman_destinationY,bomberman_size,bomberman_size);
+                                }
+                                //moving bubbleman
+                                for(var i=0;i<bubbleman_array.length;i++)
+                                {
+                                        bubbleman_updatexy_i(i);
+                                        context.drawImage(bubbleman,bubbleman_array[i].bubbleman_x,bubbleman_array[i].bubbleman_y,64,64,bubbleman_array[i].bubbleman_destinationX,bubbleman_array[i].bubbleman_destinationY,bubbleman_size,bubbleman_size);
+                                }
+                                //moving pacman
+                                for(var i=0;i<pacman_array.length;i++)
+                                {
+                                        pacman_updatexy_i(i);
+                                       context.drawImage(pacman,pacman_array[i].pacman_x,pacman_array[i].pacman_y,64,64,pacman_array[i].pacman_destinationX,pacman_array[i].pacman_destinationY,pacman_size,pacman_size);
+                                }
+                                for(var i=0;i<explode.length;i++)
+                                {
+                                       context.drawImage(bombs,0,explode[i].incrementer,64,64,explode[i].tj*block_size,explode[i].ti*block_size,block_size,block_size);
+                                        //context.fillStyle="black";
+                                       context.strokeRect(explode[i].tj*block_size,explode[i].ti*block_size,block_size,block_size);
+                                        if(explode[i].timer%5==0)
+                                        {
+                                                explode[i].incrementer+=64;
+                                        }
+                                        explode[i].timer+=1;
+                                        if(explode[i].incrementer>((bombs_explodey.length-1)*64))
+                                        {
+                                               //context.drawImage(fire,0,0,33,33,(explode[i].tj)*block_size,(explode[i].ti)*block_size,block_size,block_size);
+                                                playSound(EXPLODE,1);
+                                                fire_show.push({x:explode[i].x,y:explode[i].y,incrementer:0,timer:0,ti:explode[i].ti,tj:explode[i].tj});
+                                                //clearInterval(intern);
+                                                explode.splice(i,1);
+                                        }
+                                }
+                                // Showing the bomb fire 
+                                for(var i=0;i<fire_show.length;i++)
+                                {
+                                       context.drawImage(fire,0,0,33,32,(fire_show[i].tj)*block_size,(fire_show[i].ti)*block_size,block_size,block_size);
+                                        check_pacman_bomb_collision(fire_show[i].tj,fire_show[i].ti);
+                                        check_bomberman_bomb_collision(fire_show[i].tj,fire_show[i].ti);
+                                        check_bubbleman_bomb_collision(fire_show[i].tj,fire_show[i].ti);
+                                        //RIGHT SIDE FIRE
+                                        for(var looper=1;looper<=explode_range;looper++)
+                                        {
+                                                var xval=Math.floor((fire_show[i].tj*block_size+(looper*block_size))/block_size);
+                                                var yval=fire_show[i].ti;
+                                                //check for baundaries
+                                                if(yval<0||yval>col||xval<0||yval>row)
+                                                {
+                                                        looper=explode_range+2;
+                                                        break;
+                                                }
+                                                check_pacman_bomb_collision(xval,yval);                         //please rememberwhy xval is send as first parameter and yval as second
+                                                check_bomberman_bomb_collision(xval,yval);
+                                                check_bubbleman_bomb_collision(xval,yval);
+                                                if(looper==explode_range&&tileMap[yval][xval]==BACKGROUND) //ifthis is endof the fire
+                                                {
+                                                       context.drawImage(fire,64,0,32,33,(fire_show[i].tj)*block_size+(looper*block_size),(fire_show[i].ti)*block_size,block_size,block_size);
+                                                }
+                                                else if(tileMap[yval][xval]==BACKGROUND){
+                                               context.drawImage(fire,32,0,32,33,(fire_show[i].tj)*block_size+(looper*block_size),(fire_show[i].ti)*block_size,block_size,block_size);
+                                                }
+                                                else if(tileMap[yval][xval]==BOMB){                     //checking for other bombsin range to blast them as well
+                                                        for(var c=0;c<explode.length;c++)
+                                                        {
+                                                                if(yval==explode[c].ti&&xval==explode[c].tj)
+                                                                {
+                                                                       fire_show.push({x:explode[i].x,y:explode[i].y,incrementer:0,timer:0,ti:explode[i].ti,tj:explode[i].tj});
+                                                                        explode.splice(i,1);
+                                                                }
+                                                        }
+                                                        looper=explode_range+2;                 //kill the line as there issomething else on this line
+                                                }
+                                                else if(tileMap[yval][xval]==FRAGILE)
+                                                {
+                                                        remove_tile.push({i:yval,j:xval});
+                                                        looper=explode_range+2;
+                                                }
+                                                else{                           //there is block thus do not proceed and do notdisplay the fire image and no need to continue the looper as well
+                                                        looper=explode_range+2;                 //kill the line as there issomething else on this line
+                                                }
+                                        }//right
+                                        //LEFT SIDE FIRE
+                                        for(var looper=1;looper<=explode_range;looper++)
+                                        {
+                                                var xval=Math.floor((fire_show[i].tj*block_size-(looper*block_size))/block_size);
+                                                var yval=fire_show[i].ti;
+                                                if(yval<0||yval>col||xval<0||yval>row)
+                                                {
+                                                        looper=explode_range+2;
+                                                        break;
+                                                }
+                                                check_pacman_bomb_collision(xval,yval);
+                                                check_bomberman_bomb_collision(xval,yval);
+                                                check_bubbleman_bomb_collision(xval,yval);
+                                                if(looper==explode_range&&tileMap[yval][xval]==BACKGROUND)
+                                                {
+                                                        context.save();
+                                                        context.setTransform(1,0,0,1,0,0);
+                                                        angleInRadians=180*Math.PI/180;
+                                                       context.translate(fire_show[i].tj*block_size-(looper*block_size)+(block_size/2),fire_show[i].ti*block_size+(block_size/2));
+                                                        context.rotate(angleInRadians);
+                                                       context.drawImage(fire,64,0,32,33,-(block_size/2),-(block_size/2),block_size,block_size);
+                                                        context.restore();
+                                                }
+                                                else if(tileMap[yval][xval]==BACKGROUND){
+                                                       context.drawImage(fire,32,0,32,33,(fire_show[i].tj)*block_size-(looper*block_size),fire_show[i].ti*block_size,block_size,block_size);
+                                                }
+                                                else if(tileMap[yval][xval]==BOMB){
+                                                        for(var c=0;c<explode.length;c++)
+                                                        {
+                                                                if(yval==explode[c].ti&&xval==explode[c].tj)
+                                                                {
+                                                                       fire_show.push({x:explode[i].x,y:explode[i].y,incrementer:0,timer:0,ti:explode[i].ti,tj:explode[i].tj});
+                                                                        explode.splice(i,1);
+                                                                }
+                                                        }
+                                                        looper=explode_range+2;
+                                                }
+                                                else if(tileMap[yval][xval]==FRAGILE)
+                                                {
+                                                        remove_tile.push({i:yval,j:xval});
+                                                        looper=explode_range+2;
+                                                }
+                                                else{                                                           //there is block thus do not proceed and display the image and no need to continue the looper as well
+                                                        looper=explode_range+2;                 //kill the line as there is something else on this line
+                                                }
+                                        }//left
+                                        //FIRE SHOW FOR UP 
+                                        for(var looper=1;looper<=explode_range;looper++)
+                                        {
+                                                var xval=fire_show[i].tj;
+                                                var yval=Math.floor((fire_show[i].ti*block_size-(looper*block_size))/block_size);
+                                                if(yval<0||yval>col||xval<0||yval>row)
+                                                {
+                                                        looper=explode_range+2;
+                                                        break;  
+                                                }
+                                                check_pacman_bomb_collision(xval,yval);
+                                                check_bomberman_bomb_collision(xval,yval);
+                                                check_bubbleman_bomb_collision(xval,yval);
+                                                if(looper==explode_range&&tileMap[yval][xval]==BACKGROUND)
+                                                {
+                                                        context.save();
+                                                        context.setTransform(1,0,0,1,0,0);
+                                                        angleInRadians=270*Math.PI/180;
+                                                       	context.translate(fire_show[i].tj*block_size+(block_size/2),fire_show[i].ti*block_size-(looper*block_size)+(block_size/2));
+                                                        context.rotate(angleInRadians);
+                                                        context.drawImage(fire,64,0,32,33,-(block_size/2),-(block_size/2),block_size,block_size);
+                                                        context.restore();
+                                                }
+                                                else if(tileMap[yval][xval]==BACKGROUND){
+                                                        context.save();
+                                                        context.setTransform(1,0,0,1,0,0);
+                                                        angleInRadians=270*Math.PI/180;
+                                                       	context.translate(fire_show[i].tj*block_size+(block_size/2),fire_show[i].ti*block_size-(looper*block_size)+(block_size/2));
+                                                        context.rotate(angleInRadians);
+                                                        context.drawImage(fire,32,0,32,33,-(block_size/2),-(block_size/2),block_size,block_size);
+                                                        context.restore();
+                                                 }else if(tileMap[yval][xval]==BOMB){
+                                                        for(var c=0;c<explode.length;c++)
+                                                        {
+                                                                if(yval==explode[c].ti&&xval==explode[c].tj)
+                                                                {
+                                                                        fire_show.push({x:explode[i].x,y:explode[i].y,incrementer:0,timer:0,ti:explode[i].ti,tj:explode[i].tj});
+                                                                        explode.splice(i,1);
+                                                                }
+                                                        }
+                                                        looper=explode_range+2;
+                                                }
+                                                else if(tileMap[yval][xval]==FRAGILE)
+                                                {
+                                                        remove_tile.push({i:yval,j:xval});
+                                                        looper=explode_range+2;
+                                                }
+                                                
+                                                else{                                                           //there is block thus do not proceed and display the image and no need to continue the looper as well
+                                                        looper=explode_range+2;                 //kill the line as there is something else on this line
+                                                }
+                                        }
+                                        //Fire SHOW FOR DOWN 
+                                        for(var looper=1;looper<=explode_range;looper++)
+                                        {
+                                                var xval=fire_show[i].tj;
+                                                var yval=Math.floor((fire_show[i].ti*block_size+looper*block_size)/block_size);
+                                                if(yval<0||yval>col||xval<0||yval>row)
+                                                {
+                                                        looper=explode_range+2;
+                                                        break;  
+                                                }
+                                                check_pacman_bomb_collision(xval,yval);
+                                                check_bomberman_bomb_collision(xval,yval);
+                                                check_bubbleman_bomb_collision(xval,yval);
+                                                if(looper==explode_range&&tileMap[yval][xval]==BACKGROUND)
+                                                {
+                                                        context.save();
+                                                        context.setTransform(1,0,0,1,0,0);
+                                                        angleInRadians=90*Math.PI/180;
+                                                        context.translate(fire_show[i].tj*block_size+(block_size/2),fire_show[i].ti*block_size+(looper*block_size)+(block_size/2));
+                                                        context.rotate(angleInRadians);
+                                                        context.drawImage(fire,64,0,32,33,-(block_size/2),-(block_size/2),block_size,block_size);
+                                                        context.restore();
+                                                }
+                                                else if(tileMap[yval][xval]==BACKGROUND){
+                                                        context.save();
+                                                        context.setTransform(1,0,0,1,0,0);
+                                                        angleInRadians=90*Math.PI/180;
+                                                        context.translate(fire_show[i].tj*block_size+(block_size/2),fire_show[i].ti*block_size+(looper*block_size)+(block_size/2));
+                                                        context.rotate(angleInRadians);
+                                                        context.drawImage(fire,32,0,32,33,-(block_size/2),-(block_size/2),block_size,block_size);
+                                                        context.restore();
+                                                }
+                                                else if(tileMap[yval][xval]==BOMB){
+                                                        for(var c=0;c<explode.length;c++)
+                                                        {
+                                                                if(yval==explode[c].ti&&xval==explode[c].tj)
+                                                                {
+                                                                        fire_show.push({x:explode[i].x,y:explode[i].y,incrementer:0,timer:0,ti:explode[i].ti,tj:explode[i].tj});
+                                                                        explode.splice(i,1);
+                                                                }
+                                                        }
+                                                        looper=explode_range+2;
+                                                }
+                                                else if(tileMap[yval][xval]==FRAGILE)
+                                                {
+                                                        remove_tile.push({i:yval,j:xval});
+                                                        looper=explode_range+2;
+                                                }
+                                                else{                                                           //there is block thus do not proceed and display the image and no need to continue the looper as well
+                                                        looper=explode_range+2;                 //kill the line as there is something else on this line
+                                                }
+                                        }
+                                        fire_show[i].timer+=1;
+                                        if(fire_show[i].timer>5)
+                                        {
+                                                SCORE+=2;
+                                                tileMap[fire_show[i].ti][fire_show[i].tj]=BACKGROUND;           //to allow back the bomberman and other character to move over the bomb tile over the Map
+                                                fire_show.splice(i,1);
+                                                for(var i=remove_tile.length-1;i>=0;i--)                               //actual Fragile tile Removing code
+                                                {
+                                                        var yval=remove_tile[i].i;
+                                                        var xval=remove_tile[i].j;
+                                                        if(tileMap[yval][xval]!=BACKGROUND)             //do not test for the already dealt tiles again
+                                                        {
+                                                                tileMap[yval][xval]=BACKGROUND;
+                                                                console.log("value of yval="+yval+"value of xval="+xval);
+                                                                if(Math.floor(Math.random()*100)>30)                   //30% of the time you will get the goodies
+                                                                {
+                                                                        var goodieNumber=Math.floor(Math.random()*9);
+                                                                        //var goodieNumber=2;
+                                                                        if(goodieNumber!=7)
+                                                                        {
+                                                                               goodies.push({y:yval,x:xval,goodie_number:goodieNumber});
+                                                                        }
+                                                                        else{
+                                                                               goodies.push({y:yval,x:xval,goodie_number:goodieNumber,coins_frameX:0});
+                                                                        }
+                                                                }
+                                                        }
+                                                }
+                                                remove_tile.length=0;                   //do not test for the already dealt tiles again
+                                        }
+                                }//for
+                                check_bomberman_goodie_collision();
+                                function check_bomberman_goodie_collision()
+                                {
+                                        var r1left=bomberman_destinationX;
+                                        var r1top=bomberman_destinationY;
+                                        var r1right=bomberman_destinationX+bomberman_size;
+                                        var r1bottom=bomberman_destinationY+bomberman_size;
+                                        for(var i=goodies.length-1;i>=0;i--)
+                                        {
+                                                var r2left=goodies[i].x*block_size;
+                                                var r2top=goodies[i].y*block_size;
+                                                var r2right=goodies[i].x*block_size+block_size;
+                                                var r2bottom=goodies[i].y*block_size+block_size;
+                                               if(r1left+12>r2right||r1top+12>r2bottom||r1right-12<r2left||r1bottom-12<r2top)
+                                                {
+                                                        //NO COLLISION
+                                                }
+                                                else{
+                                                        var what=goodies[i].goodie_number;
+                                                        console.log("bomberman touched with goodie number="+what);
+                                                        switch(what)
+                                                        {
+                                                                case 0:         //LIFE++
+                                                                playSound(LIFE_SOUND,1);
+                                                                goodies.splice(i,1);
+                                                  //*************show movement of life icon*************
+                                                                var s=document.createElement("div");
+                                                                s.setAttribute("class","life");
+                                                                document.body.appendChild(s);
+                                                                s.style.left=r2left+"px";
+                                                                s.style.top=r2top+"px";
+                                                                $('.life').animate({left:(theCanvas.width-(chances+1)*block_size),top:'0px'});
+                                                                setTimeout(function(){$('.life').remove()},400);
+                                                                chances++;
+                                                                break;
+                                                                case 1:         //SHIELD
+                                                                if(SHIELD==false)
+                                                                {
+                                                                setTimeout(function(){SHIELD=true;},0);
+                                                                setTimeout(function(){SHIELD=false;},5*1000);
+                                                                playSound(LIFE_SOUND,1);
+                                                                progressPool.push({case_number:1,progress_limit:300,progress_value:0});
+                                                                goodies.splice(i,1);
+                                                                }
+                                                                break;
+                                                                case 2:         //SPEED
+                                                                setTimeout(function(){bomberman_speed+=5;},0);
+                                                                setTimeout(function(){bomberman_speed-=5;},5*1000);
+                                                                playSound(LIFE_SOUND,1);
+                                                                progressPool.push({case_number:2,progress_limit:300,progress_value:0});
+                                                                goodies.splice(i,1);
+                                                                break;
+                                                                case 3:         //TELEPORT
+                                                                /*playSound(LIFE_SOUND,1);
+                                                                goodies.splice(i,1);
+                                                                */
+                                                                break;
+                                                                case 4:
+                                                                playSound(LIFE_SOUND,1);                //INCREASE EXPLODE RANGE
+                                                                explode_range+=1;
+                                                                var s=document.createElement("div");
+                                                                s.setAttribute("class","range_bomb");
+                                                                document.body.appendChild(s);
+                                                                s.style.left=r2left+"px";
+                                                                s.style.top=r2top+"px";
+                                                                $(".range_bomb").animate({left:range_ImageLocationLeft,top:range_ImageLocationTop});
+                                                                goodies.splice(i,1);
+                                                                break;
+                                                                case 5:
+                                                                if(appstate!=SHOOT_CHARACTER)
+                                                                {
+		                                                        	    playSound(LIFE_SOUND,1);                //SHOOT ICON
+		                                                        	    goodies.splice(i,1);
+		                                                                appstate=SHOOT_CHARACTER;
+		                                                                setTimeout(function(){
+		                                                                document.body.style.cursor="crosshair";
+		                                                                },0);
+		                                                                setTimeout(function(){
+		                                                                        document.body.style.cursor="default";
+		                                                                        appstate=PLAYING;
+		                                                                },5*1000);
+                                                                        progressPool.push({case_number:5,progress_limit:300,progress_value:0});
+                                                             	}//shoot character
+                                                                break;
+                                                                case 6:
+                                                                /*playSound(LIFE_SOUND,1);              //BLACK HOLE
+                                                                goodies.splice(i,1);
+                                                                console.log("taken 6");*/
+                                                                break;
+                                                                case 7:
+                                                                playSound(LIFE_SOUND,1);        //COINS
+                                                                goodies.splice(i,1);
+                                                                var s=document.createElement("div");
+                                                                s.setAttribute("class","coin");
+                                                                document.body.appendChild(s);
+                                                                s.style.left=r2left+"px";
+                                                                s.style.top=r2top+"px";
+                                                                $(".coin").animate({left:coin_locationLeft,top:coin_locationTop});
+                                                                Coins_number++;
+                                                                setTimeout(function(){document.getElementsByClassName("coin")[1].remove()},800);
+                                                                break;
+                                                                case 8:                 //INCREASE NO OF BOMBS BOMBERMAN CAN PUT
+                                                                playSound(LIFE_SOUND,1);
+                                                                NOBA++;
+                                                                goodies.splice(i,1);
+                                                                var s=document.createElement("div");
+                                                                s.setAttribute("class","bomb");
+                                                                document.body.appendChild(s);
+                                                                s.style.left=r2left+"px";
+                                                                s.style.top=r2top+"px";
+                                                                $(".bomb").animate({left:bomb_locationLeft,top:bomb_locationTop});
+                                                                setTimeout(function(){document.getElementsByClassName("bomb")[1].remove()},800);
+                                                                break;
+                                                                case 9://GHOST MODE
+                                                                
+                                                                if(ghost_bomberman!=true)
+                                                                {
+                                                                playSound(LIFE_SOUND,1); 
+                                                                setTimeout(function(){ghost_bomberman=true;},0);
+                                                                setTimeout(function(){ghost_bomberman=false;},5*1000);
+                                                                progressPool.push({case_number:9,progress_limit:300,progress_value:0});
+                                                                goodies.splice(i,1);
+                                                                }
+                                                                break;
+                                                        }
+                                                }
+                                        }
+                                }
+                                function check_bubbleman_bomb_collision(bomb_i,bomb_j)
+                                {
+                                        for(var i=bubbleman_array.length-1;i>=0;i--)
+                                        {                               /*************HERE precision values are taken for more look notes(1) **************/
+                                                //checking for left,top
+                                                var bi=Math.floor((bubbleman_array[i].bubbleman_destinationX+12)/block_size);
+                                                var bj=Math.floor((bubbleman_array[i].bubbleman_destinationY+12)/block_size);
+                                                if(bi==bomb_i&&bj==bomb_j)
+                                                {
+                                                        SCORE+=10;
+                                                        playSound(SCORE_SOUND,1);
+                                                        bubbleman_array.splice(i,1);
+                                                        break;
+                                                }
+                                                //checking for left bottom
+                                                bi=Math.floor((bubbleman_array[i].bubbleman_destinationX+12)/block_size);
+                                                bj=Math.floor((bubbleman_array[i].bubbleman_destinationY+bubbleman_size-12)/block_size);
+                                                if(bi==bomb_i&&bj==bomb_j)
+                                                {
+                                                        SCORE+=10;
+                                                        playSound(SCORE_SOUND,1);
+                                                        bubbleman_array.splice(i,1);
+                                                        break;
+                                                }
+                                                //checking for right,top
+                                                bi=Math.floor((bubbleman_array[i].bubbleman_destinationX+bubbleman_size-12)/block_size);
+                                                bj=Math.floor((bubbleman_array[i].bubbleman_destinationY+12)/block_size);
+                                                if(bi==bomb_i&&bj==bomb_j)
+                                                {
+                                                        SCORE+=10;
+                                                        playSound(SCORE_SOUND,1);
+                                                        bubbleman_array.splice(i,1);
+                                                        break;
+                                                }
+                                                //checking for right bottom
+                                                bi=Math.floor((bubbleman_array[i].bubbleman_destinationX+bubbleman_size-12)/block_size);
+                                                bj=Math.floor((bubbleman_array[i].bubbleman_destinationY+bubbleman_size-12)/block_size);
+                                                if(bi==bomb_i&&bj==bomb_j)
+                                                {
+                                                        SCORE+=10;
+                                                        playSound(SCORE_SOUND,1);
+                                                        bubbleman_array.splice(i,1);
+                                                        break;
+                                                }
+                                        }
+                                }// bubbleman vs bomb
+                                function check_bomberman_bomb_collision(bomb_i,bomb_j)
+                                {
+                                        if(SHIELD==true)
+                                        {
+                                                return ;
+                                        }
+                                        var bi,bj;
+                                        for(var i=0;i<=col;i++) 
+                                        {
+                                                for(var j=0;j<=row;j++)
+                                                {
+                                                        if(bomberman_destinationX+(bomberman_size/2)>=(j*block_size)&&(bomberman_destinationX+bomberman_size/2)<=(j*block_size)+block_size&&bomberman_destinationY+(bomberman_size/2)>=i*block_size&&bomberman_destinationY+(bomberman_size/2)<=i*block_size+block_size)
+                                                        {
+                                                                bi=i;                   //current tile(column value) on which bomberman is 
+                                                                bj=j;                   //current tile(row value) on which bomebman is 
+                                                        } 
+                                        }//row
+                                        }//col
+                                        //remove the shoot progress if bomberman comes to death
+                                        if(bj==bomb_i&&bi==bomb_j)
+                                        {
+                                                appstate=LOOSE;
+                                                for(var j=progressPool.length-1;j>=0;j--)
+                                                    {
+                                                        if(progressPool[j].case_number==5)
+                                                            {
+                                                                progressPool.splice(j,1);
+                                                            }
+                                                    }
+                                        }
+                                } //bomberman vs bomb
+                                function check_pacman_bomb_collision(bomb_i,bomb_j)
+                                {
+                                        for(var i=pacman_array.length-1;i>=0;i--)
+                                        {
+                                                //checking for left,top
+                                                var bi=Math.floor((pacman_array[i].pacman_destinationX+12)/block_size);
+                                                var bj=Math.floor((pacman_array[i].pacman_destinationY+12)/block_size);
+                                                if(bi==bomb_i&&bj==bomb_j)
+                                                {
+                                                        SCORE+=10;
+                                                        playSound(SCORE_SOUND,1);
+                                                        pacman_array.splice(i,1);
+                                                        break;
+                                                }
+                                                //checking for left bottom
+                                                bi=Math.floor((pacman_array[i].pacman_destinationX+12)/block_size);
+                                                bj=Math.floor((pacman_array[i].pacman_destinationY+pacman_size-12)/block_size);
+                                                if(bi==bomb_i&&bj==bomb_j)
+                                                {
+                                                        SCORE+=10;
+                                                        playSound(SCORE_SOUND,1);
+                                                        pacman_array.splice(i,1);
+                                                        break;
+                                                }
+                                                //checking for right,top
+                                                bi=Math.floor((pacman_array[i].pacman_destinationX+pacman_size-12)/block_size);
+                                                bj=Math.floor((pacman_array[i].pacman_destinationY+12)/block_size);
+                                                if(bi==bomb_i&&bj==bomb_j)
+                                                {
+                                                        SCORE+=10;
+                                                        playSound(SCORE_SOUND,1);
+                                                        pacman_array.splice(i,1);
+                                                        break;
+                                                }
+                                                //checking for right bottom
+                                                bi=Math.floor((pacman_array[i].pacman_destinationX+pacman_size-12)/block_size);
+                                                bj=Math.floor((pacman_array[i].pacman_destinationY+pacman_size-12)/block_size);
+                                                if(bi==bomb_i&&bj==bomb_j)
+                                                {
+                                                        SCORE+=10;
+                                                        playSound(SCORE_SOUND,1);
+                                                        pacman_array.splice(i,1);
+                                                        break;
+                                                }
+                                        }
+                                }//pacman vs bomb collision
+                                //context.fillStyle="black";
+                                //context.strokeRect(bomberman_destinationX,bomberman_destinationY,48,48);
+                                /****CHECK bomberman and other characters collision*****************************/
+                                
+                                for(var i=bubbleman_array.length-1;i>=0;i--)
+                                {
+                                        if(check_bomberman_bubbleman_collision(i))
+                                        {
+                                                appstate=LOOSE;
+                                                for(var j=progressPool.length-1;j>=0;j--)
+                                                    {
+                                                        if(progressPool[j].case_number==5)
+                                                            {
+                                                                progressPool.splice(j,1);
+                                                            }
+                                                    }
+                                        }
+                                }
+                                for(var i=pacman_array.length-1;i>=0;i--)
+                                {
+                                        if(check_bomberman_pacman_collision(i))
+                                        {
+                                                appstate=LOOSE;
+                                                for(var j=progressPool.length-1;j>=0;j--)
+                                                    {
+                                                        if(progressPool[j].case_number==5)
+                                                            {
+                                                                progressPool.splice(j,1);
+                                                            }
+                                                    }
+                                        }
+                                }
+                                function check_bomberman_bubbleman_collision(i)
+                                {
+                                        if(SHIELD==true)                //-->controversial when adding new characters
+                                        {
+                                                return false;
+                                        }
+                                                var precision_value=5;
+                                                var retval=false;
+                                            	var r1left=bomberman_destinationX+12;
+                                                var r1right=bomberman_destinationX+bomberman_size-12;
+                                                var r1top=bomberman_destinationY;
+                                                var r1bottom=bomberman_destinationY+bomberman_size;
+                                                var r2left=bubbleman_array[i].bubbleman_destinationX+12;
+                                                var r2right=bubbleman_array[i].bubbleman_destinationX+bubbleman_size-12;
+                                                var r2top=bubbleman_array[i].bubbleman_destinationY;
+                                                var r2bottom=bubbleman_array[i].bubbleman_destinationY+bubbleman_size;
+                                               if((r1left+precision_value>r2right)||(r1right-precision_value<r2left)||(r1bottom-precision_value<r2top)||(r1top+precision_value>r2bottom))
+                                                {
+                                                        retval=false;
+                                                }
+                                        else {
+                                                console.log("hit");
+                                                retval=true;
+                                                }
+                                                return retval;
+                                }//bomeberman vs pacman
+                                function check_bomberman_pacman_collision(i)
+                                {
+                                                if(SHIELD==true)                //---->controversial when adding newcharacters
+                                                {
+                                                        return false;
+                                                }
+                                                var precision_value=5;
+                                                var retval=false;
+                                            var r1left=bomberman_destinationX+12;
+                                                var r1right=bomberman_destinationX+bomberman_size-12;
+                                                var r1top=bomberman_destinationY;
+                                                var r1bottom=bomberman_destinationY+bomberman_size;
+                                                
+                                                var r2left=pacman_array[i].pacman_destinationX+12;
+                                                var r2right=pacman_array[i].pacman_destinationX+bubbleman_size-12;
+                                                var r2top=pacman_array[i].pacman_destinationY;
+                                                var r2bottom=pacman_array[i].pacman_destinationY+bubbleman_size;
+                                               if((r1left+precision_value>r2right)||(r1right-precision_value<r2left)||(r1bottom-precision_value<r2top)||(r1top+precision_value>r2bottom))
+                                                {
+                                                        retval=false;
+                                                }
+                                        else {
+                                                console.log("hit");
+                                                retval=true;
+                                                }
+                                                return retval;
+                                }
+                                for(var i=0;i<chances;i++)
+                                {
+                                       context.drawImage(bomberman,x,y,48,48,theCanvas.width-50-(i*50),0,bomberman_size,bomberman_size);
+                                }//draw the lifes left
+                        context.fillStyle="orange";
+                        context.lineCap="round";
+                        context.font="25px Segoe UI Light";
+                        context.fillText("Level:"+level+" "+"Score:"+SCORE,level_scoreLeft,level_scoreTop);
+                        
+                        context.fillText(":",coin_locationLeft+40,33);		//coin colon
+                        context.fillText(Coins_number,coin_locationLeft+47,35);		//coin_number display
+                        context.fillText(":",bomb_locationLeft+40,33);		//bomb colon
+                        context.fillText(NOBA,bomb_locationLeft+46,35);		//bomb_number
+                        context.fillText(":",range_ImageLocationLeft+50,33);
+                        context.fillText(explode_range,range_ImageLocationLeft+55,35);
+                        //show Score
+                         context.strokeStyle="red";
+                                context.fillStyle="yellow";
+                                for(var i=progressPool.length-1;i>=0;i--)
+                                {
+                                     context.strokeRect(100,i*30,300+5,30);
+                                     progressPool[i].progress_value++;
+                                     context.fillStyle="yellow";
+                                     context.fillRect(100+5,30*i+5,progressPool[i].progress_value,20);
+                                     context.font="12px cursive";
+                                     context.fillStyle="black";
+                                    switch(progressPool[i].case_number)
+                                    {
+                                     case 0:
+                                     context.fillText("Reborn",100+5,i*30+10);
+                                     break;                                    
+                                     case 1:
+                                     context.fillText("Shield",100+5,i*30+10);
+                                     break;
+                                     case 2:
+                                     context.fillText("Speed",100+5,i*30+10);
+                                     break;
+                                     case 5:
+                                     context.fillText("Shoot",100+5,i*30+10);
+                                     break;
+                                     case 9:
+                                     context.fillText("Ghost Mode",100+5,i*30+10);
+                                     break;
+                                    }//switch
+                                     if(++progressPool[i].progress_value>progressPool[i].progress_limit)
+                                         {
+                                             progressPool.splice(i,1);
+                                         }
+                                }//for
+                                context.strokeStyle="black";
+                                context.strokeStyle="black";
+                                
+                        }//drawScreen
+                        }//canvasApp
+                        function turn_off_sound()
+                    {
+                        if(SOUNDONOFF=="ON")
+                        {
+                                SOUNDONOFF="OFF";
+                        }
+                        else 
+                        {
+                                SOUNDONOFF="ON";
+                        }
+                    }//turn_off_sound
+                        function playSound(sound,volume)
+                        {
+                                if(SOUNDONOFF=="ON")
+                                {
+                                var soundfound=false;
+                                var soundIndex=0;
+                                var tempSound;
+                                if(SoundPool.length>=0)
+                                {
+                                        while(!soundfound && soundIndex<SoundPool.length)
+                                        {
+                                                var tSound=SoundPool[soundIndex];
+                                                if((tSound.element.ended||!tSound.played)&&tSound.name==sound)
+                                                {
+                                                        
+                                                console.log("sound found for "+sound);
+                                                soundfound=true;
+                                                tSound.played=true;     
+                                                }
+                                                else
+                                                {
+                                                        soundIndex++;
+                                                }//else
+                                        }//while
+                                }//if
+                                if(soundfound)
+                                {
+                                        tempSound=SoundPool[soundIndex].element;
+                                        tempSound.volume=volume;
+                                        tempSound.play();
+                                }//if
+                                else if(SoundPool.length<Max_Sounds)
+                                {   	console.log("sound created");
+                                        tempSound=document.createElement("audio");
+                                        tempSound.setAttribute("src",sound+"."+audioType);
+                                        tempSound.volume=volume;
+                                        tempSound.play();
+                                        SoundPool.push({name:sound,element:tempSound,type:audioType,played:true});
+                                }//else
+                                }//if sound is on
+                        }//playSound
+			$(document).ready(function(){
+				 $("#move").mouseover(function(){
+                            
+                        });
+                        //1 li mouseover
+                        $("li").first().mouseover(function(){
+                           $("#nav_element1_span").css("font-size","26px");
+                           $("#nav_element1_span").css("color","black");
+                           $("#pic").addClass("about");
+                        });
+                        //1 li mouseout
+                         $("li").first().mouseout(function(){
+                           $("#nav_element1_span").css("font-size","15px");
+                           $("#nav_element1_span").css("color","white");
+                           $("#pic").removeClass("about");
+                        });
+                        //2 li mouseover
+                        $("li:nth-child(2)").mouseover(function(){
+                            $("#nav_element2_span").css("font-size","26px");
+                            $("#nav_element2_span").css("color","black");
+                            $("#pic").addClass("control");
+                        });
+                        //2 li mouseout
+                         $("li:nth-child(2)").mouseout(function(){
+                            $("#nav_element2_span").css("font-size","15px");
+                            $("#nav_element2_span").css("color","white");
+                            $("#pic").removeClass("control");
+                        });
+                        //3 li mouseover
+                        $("li:nth-child(3)").mouseover(function(){
+                            $("#nav_element3_span").css("font-size","26px");
+                            $("#nav_element3_span").css("color","black");
+                            $("#pic").addClass("contact");
+                        });
+                        //3 li mouseout
+                        $("li"+":nth-child(3)").mouseout(function(){
+                            $("#nav_element3_span").css("font-size","15px");
+                            $("#nav_element3_span").css("color","white");
+                            $("#pic").removeClass("contact");
+                        });
+                        //4 li mouseover
+                        $("li:nth-child(4)").mouseover(function(){
+                            $("#nav_element4_span").css("font-size","26px");
+                            $("#nav_element4_span").css("color","black");
+                            $("#pic").addClass("demo");
+                        });
+                        //4 li mouseout
+                        $("li:nth-child(4)").mouseout(function(){
+                            $("#nav_element4_span").css("font-size","15px");
+                            $("#nav_element4_span").css("color","white");
+                            $("#pic").removeClass("demo");
+                        });
+                        $("li").first().click(function(){
+                            $("#nav_element2_body").hide(200);
+                            $("#nav_element3_body").hide(200);
+                            $("#nav_element4_body").hide(200);
+                            $("#body").show(200);
+                            $("#nav_element1_body").show(200);
+                            if($('#box_arrow').is(':visible'))
+                            {
+                                $("#box_arrow").animate({left:'80px'});
+                            }
+                            else{
+                                $("#box_arrow").css("left","80px");
+                                $("#box_arrow").show();
+                                $("#close_body").show(200);
+                            }
+                           
+                        });
+                        $("li:nth-child(2)").click(function(){
+                           $("#nav_element1_body").hide(200);
+                           $("#nav_element3_body").hide(200);
+                           $("#nav_element4_body").hide(200);
+                           $("#body").show(200);
+                           $("#nav_element2_body").show(200);
+                           if($('#box_arrow').is(':visible'))
+                            {
+                                $("#box_arrow").animate({left:'180px'});
+                            }
+                            else{
+                                $("#box_arrow").css("left","180px");
+                                $("#box_arrow").show();
+                                $("#close_body").show(200);
+                            }
+                           
+                        });
+                        $("li:nth-child(3)").click(function(){
+                           $("#nav_element1_body").hide(200);
+                           $("#nav_element2_body").hide(200);
+                           $("#nav_element4_body").hide(200);
+                           $("#body").show(200);
+                           $("#nav_element3_body").show(200);
+                           if($('#box_arrow').is(':visible'))
+                            {
+                                $("#box_arrow").animate({left:'280px'});
+                            }
+                            else{
+                                $("#box_arrow").css("left","280px");
+                                $("#box_arrow").show();
+                                $("#close_body").show(200);
+                            }
+                        });
+                        //click on 4th li
+                        $("li:nth-child(4)").click(function(){
+                           $("#nav_element1_body").hide(200);
+                           $("#nav_element2_body").hide(200);
+                           $("#nav_element3_body").hide(200);
+                           $("#body").show(200);
+                           $("#nav_element4_body").show(200);
+                           if($('#box_arrow').is(':visible'))
+                            {
+                                $("#box_arrow").animate({left:'380px'});
+                            }
+                            else{
+                                $("#box_arrow").css("left","380px");
+                                $("#box_arrow").show();
+                                $("#close_body").show(200);
+                            }
+                        });
+                        $("#close_body").click(function(){
+                           $("#box_arrow").fadeOut(200);
+                           $(this).fadeOut(200);
+                           $("#body").fadeOut(200);
+                        });
+                       
+                        $("#reload").click(function(){
+                                                document.location.reload(true);
+                                               });
+                        $(".coin").hide();
+                        $(".bomb").hide();
+                        $(".range_bomb").hide();
+                        $("#sound").mouseover(function(){
+                        	if(appstate==PLAYING)
+                        	{
+                        		appstate=PAUSE;
+                        	}
+                        });
+                        $("#sound").mouseout(function(){
+                        	if(appstate==PAUSE){
+                        		appstate=PLAYING;
+                        	}
+                        		});
+                        $("#sound").click(function(){
+                        	$(this).toggleClass("highlight");
+                        	turn_off_sound();
+                        	});
+                      //coding for the slide
+                      $("#arrow").mouseover(function(){
+                      	if(appstate==PLAYING)
+                      	{appstate=PAUSE;
+                      	$("#play").show();
+                      	}
+                      	});
+                      	$("#play").click(function(){
+                             $(".coin").show();// show after any keyboard hit
+                             $(".bomb").show();//show after any keyboard hit
+                             $(".range_bomb").show();
+                      		$(this).hide();
+                            appstate=PLAYING;
+                      	});
+                     $("#arrow").click(function(){
+                         slider__on_take_key_input="on";                         //so that no keyboard inputs are taken and appstate is not set to playing if slider is on and key is pressed
+                     	$(this).animate({right:'100%'},800);					//on click on arrow move the arrow
+                     	$("#slider").animate({left:'0%'},800);					//animate slider with arrow
+                     	//$("#new_site").load("./About.html");					//display content in new_site div element
+                     });
+                     $("#back_arrow").click(function(){
+                         slider__on_take_key_input="off";                       //as slider is off if key is pressed then appstate is set to playing
+                     	$("#slider").animate({left:'100%'},800);
+                     	$("#arrow").animate({right:'0%'},800);
+                     });
+                });
+</script>
+  </head>
+  <body oncontextmenu="return false;">
+    <canvas id="Canvas" width="320" height="320">your browser does not support canvas</canvas>
+    <div id="reload" style="font-family:Segoe UI Light;font-size:10px;color:white;"><span style="position:absolute;bottom:0px;right:10px;">Reload</span><span style="font-family: Segoe UI Light;">F5</span></div>
+    <div class="coin"> </div>
+    <div class="bomb"> </div>
+    <div class="range_bomb"> </div>
+    <div id="sound" accesskey="h"><span style="font-size: 10px;font-family: cursive;color:blue;position:absolute;left:0px;top:70%;">Alt+h</span></div>
+    <div id="arrow"> </div>							<!-- arrow to slide slider -->
+    <div id="play"><span style="font-family:Segoe UI Light;font-size:10px;color:white;position:absolute;top:0px;">Any Key</span><span style="position:absolute;bottom:0px;right:10px;font-family:Segoe UI Light;font-size:10px;color:white;">Play</span></div>						<!-- to show the play image after the slider goes back into bill-->
+    <div id="slider">								<!--This is the slider which slides-->
+    	<div id="back_arrow"> </div>					<!--back arrow is displayed in slider and it moves the slider back and show again the arrow -->
+    	<div id="new_site"><header>
+                    Bomberman
+            </header>
+            <ul id="nav">
+                <li id="nav_element1"> 
+                    <span class="label" id="nav_element1_span">About</span>  
+                </li>
+                <li id="nav_element2">
+                   <span class="label" id="nav_element2_span">Controls</span>
+                </li>
+                <li id="nav_element3">
+                    <span class="label" id="nav_element3_span">Contact</span>
+                </li>
+                <li id="nav_element4">
+                    <span class="label" id="nav_element4_span">Demo</span>
+                </li>
+            </ul>
+            <br/>
+            <div id="body" style="display: none;">
+            <div id="nav_element1_body" style="display:none;">
+                 Bomberman is a HTML5 Canvas based game.You don't need flash,add-on or any plugin to play it.Hurray(y).
+                 You can play,modify,reconstruct it as just javascript is used in making this game,change the javascript variables value and have fun.You can play this game in full screen of your browsers as well.<br/>
+                 <center>(: I hope you like it :)</center>
+                 <br/><br/>Give it a try:<br/>
+                 Set var bomberman_speed=10
+                 in bomb.html and see the magic
+                 <span style="font-size:inherit;font-family: inherit; position:absolute;bottom:0px;left:4px;cursor:default;">For more Information: <a href='www.Bomberman.codeplex.com' target="blank">www.Bomberman.codeplex.com</a></span>
+             </div>
+                <div id="nav_element2_body" style="display: none;">
+                   Use any of these options to give direction to the Bomberman: <br/>&sstarf; Arrow keys<br/>&sstarf; WSAD<br/>&sstarf; Mouse (click over bomberman)<br/> <br/>
+                   Use Space and mouse left click to put bomb on the screen at the bomberman present location.
+                </div>
+                <div id="nav_element3_body" style="display: none;padding-left: 4px;">
+                    <b>&lt;/&gt;</b> Anuj Rastogi <b>&lt;/&gt;</b><br/>
+                    <table>
+                    	<tr><td>Email id:</td><td>anuj29rastogi@gmail.com</td></tr>
+                    	<tr><td>Phone No:</td><td>+919888503296</td></tr>
+                    	<tr><td>Facebook:</td><td><a href="http://www.fb.com/anuj29rastogi">www.fb.com/anuj29rastogi</a></td></tr>
+                    	<tr><td>Twitter: </td><td></td></tr>
+                    	<tr><td>Linked in:</td><td><a href="http://in.linkedin.com/pub/anuj-rastogi/42/827/b0b/">http://in.linkedin.com/pub/anuj-rastogi/42/827/b0b/</a></td></tr>
+                    	<tr><td>Google+:</td><td><a href="https://plus.google.com/118188684502951103528/">https://plus.google.com/118188684502951103528/</a></td></tr>
+                    </table> 
+                </div>
+                <div id="nav_element4_body" style="display:none;padding-left: 4px;">
+                    &sstarf; There is a hidden power in 80% of fragile boxes.<br/>
+                    &sstarf; Kill a character +10 score and when you are killed by any character cost you -10 in score.<br/>
+                    &sstarf; Remove a fragile box gives you +2 score.<br/>
+                    &sstarf; Progress bar with type shows you how much time is left to use that power.<br/>
+                </div>
+            </div>
+            <div id="close_body" style="display: none;"> </div>
+            <div id="box_arrow" style="display:none;"> </div>
+            <div id="pic"> </div>
+            </div>
+
+             <footer>
+                <hr>
+                &copy; Copyrights by Anuj Rastogi
+            </footer> </div>					<!--This is the container of the html page display.html-->
+    </div>
+    <progress id="pro" min="0" max="19" style="position:fixed;left:40%;top:40%;"> </progress>
+    <div style="position:fixed;left:50%;top:50%;font-family:Impact,Helvetica;font-size:15px;" id="loading"> Loading: <span id="loading_span"> </span></div>
+  </body>
+</html>
