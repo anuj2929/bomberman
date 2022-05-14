@@ -3,3 +3,4 @@ Bomberman is a HTML5 Canvas based game.You don't need flash,add-on or any plugin
 
 Give it a try:
 Set var bomberman_speed=10 in bomb.html and see the magic.
+![image](https://user-images.githubusercontent.com/18441019/168410514-5e1fa6d5-92ae-4372-a6a7-e70a8df44244.png)
